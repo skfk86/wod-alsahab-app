@@ -3656,8 +3656,8 @@
                         font-family: monospace; text-transform: uppercase; font-size: 0.95rem; outline: none;"
                         onfocus="this.style.borderColor='var(--accent)'"
                         onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
-                        oninput="this.value=this.value.toUpperCase()"
-                        onkeydown="if(event.key==='Enter')applyPromoCode()">
+                        oninput="if(!event.isComposing)this.value=this.value.toUpperCase()"
+                        onkeydown="if(event.key==='Enter'&&!event.isComposing)applyPromoCode()">
                     <button onclick="applyPromoCode()" style="
                         padding: 0 24px; background: linear-gradient(135deg, var(--accent), #f97316);
                         border: none; border-radius: 14px; color: #1a0e00; font-weight: 700; font-size: 0.95rem;
@@ -4710,7 +4710,7 @@
                     اكتب <strong style="color: var(--danger);">احذف</strong> للتأكيد:
                 </label>
                 <input id="deleteConfirmInput" type="text" placeholder="احذف"
-                    oninput="checkDeleteInput()"
+                    oninput="if(!event.isComposing)checkDeleteInput()"
                     style="
                         width: 100%;
                         padding: 11px 14px;
@@ -4866,10 +4866,7 @@
                         -webkit-user-select:text;
                         user-select:text;
                     "
-                    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAIMessage()}"
-                    oninput="this.style.borderColor=this.value.trim()?'var(--accent)':'rgba(255,255,255,0.15)';this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"
-                    onfocus="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 3px rgba(245,158,11,0.15)'"
-                    onblur="this.style.borderColor='rgba(255,255,255,0.15)';this.style.boxShadow='none'"
+                    data-ai-managed="1"
                 ></textarea>
                 <button class="ai-send-btn" onclick="sendAIMessage()" id="aiSendBtn">
                     <i class="fas fa-paper-plane"></i>
@@ -4971,13 +4968,9 @@
                         dir="rtl"
                         maxlength="40"
                         placeholder="اسمك الجديد..."
-                        oninput="
-                            document.getElementById('nameCharCount').textContent = (40 - this.value.length) + ' حرف متبقٍ';
-                            document.getElementById('saveNameBtn').style.opacity = this.value.trim() ? '1' : '0.5';
-                        "
+                        data-name-managed="1"
                         onfocus="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 3px rgba(245,158,11,0.15)'"
                         onblur="this.style.borderColor='var(--border-color)';this.style.boxShadow='none'"
-                        onkeydown="if(event.key==='Enter') window.updateDisplayName()"
                         style="
                             width:100%;
                             padding:13px 16px;
@@ -11249,6 +11242,8 @@
         }
 
         function sendSuggestion(text) {
+            // [FIX] guard: تجنّب undefined string
+            if (!text || typeof text !== 'string') return;
             // فتح حرية الكتابة للمجاني بعد أول رسالة جاهزة
             if (!window._freeUnlocked) {
                 window._freeUnlocked = true;
@@ -11609,7 +11604,10 @@
 
         async function sendAIMessage() {
             const input = document.getElementById('aiInput');
-            const text = (input.value !== undefined ? input.value : input.innerText || input.textContent).trim();
+            if (!input) return; // [FIX] حماية من null
+            // [FIX] Direct value access — لا fallback لـ innerText يُسبب "undefined"
+            const rawValue = typeof input.value === 'string' ? input.value : '';
+            const text = rawValue.trim();
             if (!text) return;
 
             // ── فحص تسجيل الدخول — شرط أساسي قبل أي شيء ──
@@ -14082,7 +14080,7 @@ window.setTheme('light')
                             style="flex: 1; background: var(--bg-secondary); border: 1px solid var(--border-color);
                             border-radius: 14px; padding: 14px; color: var(--text-primary);
                             font-family: monospace; text-transform: uppercase; font-size: 1rem; outline: none;"
-                            oninput="this.value=this.value.toUpperCase()">
+                            oninput="if(!event.isComposing)this.value=this.value.toUpperCase()">
                         <button onclick="applyPromoCodeInline()" style="
                             padding: 0 22px; background: var(--accent); border: none;
                             border-radius: 14px; color: white; font-weight: 700; font-size: 0.95rem; cursor: pointer;
@@ -18214,6 +18212,141 @@ function _showCbSmartCardSimple(type, content) {
         })();
 
         // ══════════════════════════════════════════════════════
+    </script>
+
+
+    <script>
+    // ══════════════════════════════════════════════════════════════════════
+    // [FIX] Arabic IME-safe input handler — Android WebView / Capacitor
+    // يحل: تكرار النص (السودانالسودان) وظهور "undefined" وإرسال مبكر بالـ Enter
+    // ══════════════════════════════════════════════════════════════════════
+    (function() {
+        function initAIInput() {
+            var inp = document.getElementById('aiInput');
+            if (!inp || inp.dataset.aiListenersAttached) return;
+            inp.dataset.aiListenersAttached = '1';
+
+            // ── تتبع حالة الـ IME Composition ──────────────────────────
+            var _isComposing = false;
+            var _heightRafId = null;
+
+            // تحديث الارتفاع مؤجّل بـ rAF — يمنع forced reflow أثناء الحدث
+            function _scheduleHeightUpdate() {
+                if (_heightRafId) cancelAnimationFrame(_heightRafId);
+                _heightRafId = requestAnimationFrame(function() {
+                    _heightRafId = null;
+                    inp.style.height = 'auto';
+                    inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
+                });
+            }
+
+            // ── بداية تركيب IME ────────────────────────────────────────
+            inp.addEventListener('compositionstart', function() {
+                _isComposing = true;
+            });
+
+            // ── نهاية تركيب IME — نحدّث الـ UI بعد الانتهاء فقط ───────
+            inp.addEventListener('compositionend', function() {
+                _isComposing = false;
+                // تحديث اللون والارتفاع مرة واحدة بعد اكتمال التركيب
+                inp.style.borderColor = inp.value.trim()
+                    ? 'var(--accent)'
+                    : 'rgba(255,255,255,0.15)';
+                _scheduleHeightUpdate();
+            });
+
+            // ── oninput آمن: يتجاهل الأحداث أثناء جلسة التركيب ────────
+            inp.addEventListener('input', function(e) {
+                // e.isComposing: معيار W3C | _isComposing: fallback للـ WebViews القديمة
+                if (_isComposing || e.isComposing) return;
+
+                inp.style.borderColor = inp.value.trim()
+                    ? 'var(--accent)'
+                    : 'rgba(255,255,255,0.15)';
+                _scheduleHeightUpdate();
+            });
+
+            // ── onkeydown آمن: لا إرسال أثناء اختيار كلمة من IME ───────
+            inp.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !_isComposing) {
+                    e.preventDefault();
+                    sendAIMessage();
+                }
+            });
+
+            // ── focus / blur ────────────────────────────────────────────
+            inp.addEventListener('focus', function() {
+                inp.style.borderColor  = 'var(--accent)';
+                inp.style.boxShadow    = '0 0 0 3px rgba(245,158,11,0.15)';
+            });
+            inp.addEventListener('blur', function() {
+                // لا نُعيد اللون إذا كان الـ IME لا يزال يعمل
+                if (!_isComposing) {
+                    inp.style.borderColor = 'rgba(255,255,255,0.15)';
+                    inp.style.boxShadow   = 'none';
+                }
+            });
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // [FIX] editDisplayName — IME-safe handler للاسم (حقل عربي RTL)
+        // ══════════════════════════════════════════════════════════════════════
+        function initDisplayNameInput() {
+            var el = document.getElementById('editDisplayName');
+            if (!el || el.dataset.nameListenersAttached) return;
+            el.dataset.nameListenersAttached = '1';
+
+            var _comp = false;
+
+            el.addEventListener('compositionstart', function() { _comp = true; });
+
+            el.addEventListener('compositionend', function() {
+                _comp = false;
+                _updateNameUI(el);
+            });
+
+            el.addEventListener('input', function(e) {
+                // تجاهل أي حدث أثناء جلسة تركيب IME
+                if (_comp || e.isComposing) return;
+                _updateNameUI(el);
+            });
+
+            el.addEventListener('keydown', function(e) {
+                // Enter فقط بعد انتهاء التركيب
+                if (e.key === 'Enter' && !e.isComposing && !_comp) {
+                    e.preventDefault();
+                    if (window.updateDisplayName) window.updateDisplayName();
+                }
+            });
+
+            function _updateNameUI(inp) {
+                var counter = document.getElementById('nameCharCount');
+                var saveBtn = document.getElementById('saveNameBtn');
+                var remaining = Math.max(0, 40 - (inp.value || '').length);
+                if (counter) counter.textContent = remaining + ' حرف متبقٍ';
+                if (saveBtn)  saveBtn.style.opacity = (inp.value || '').trim() ? '1' : '0.5';
+            }
+        }
+
+        // تشغيل فور اكتمال DOM
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                initAIInput();
+                initDisplayNameInput();
+            });
+        } else {
+            initAIInput();
+            initDisplayNameInput();
+        }
+
+        // تشغيل احتياطي بعد load (لو تأخّر DOM الديناميكي في Capacitor)
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                initAIInput();
+                initDisplayNameInput();
+            }, 300);
+        });
+    })();
     </script>
 
 </body>
