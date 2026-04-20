@@ -6211,6 +6211,34 @@
 
     <script>
         // ── makeTimeout: بديل AbortSignal.timeout() لدعم WebView القديم ──
+        
+        // ══════════════════════════════════════════════════
+        // fetchWeatherByCoords — GPS Hook (ود السحاب v2.0)
+        // يُستدعى من capacitor-bridge.js عند تحديد موقع GPS
+        // أو اختيار مدينة من شريط البحث.
+        // ══════════════════════════════════════════════════
+        window.fetchWeatherByCoords = async function(lat, lon, cityName) {
+            // أضف/حدّث إدخال 'gps' في allCities
+            if (typeof allCities !== 'undefined') {
+                allCities['gps'] = {
+                    name:   cityName || 'موقعك الحالي',
+                    lat:    lat,
+                    lon:    lon,
+                    elev:   0,
+                    region: 'GPS'
+                };
+                window.allCities = allCities;
+            }
+            window.currentCity = 'gps';
+
+            // استدعِ دالة تغيير المدينة الموجودة
+            if (typeof changeCity === 'function') {
+                changeCity('gps');
+            } else if (typeof loadWeatherData === 'function') {
+                loadWeatherData('gps');
+            }
+        };
+
         function makeTimeout(ms) {
             var ctrl = new AbortController();
             setTimeout(function() { ctrl.abort(); }, ms);
@@ -6339,6 +6367,15 @@
         // ── متغيرات عالمية (window) لتجنب تعارض الـ scope في WebView ──
         if (typeof window.mainCities === 'undefined')   window.mainCities   = [];
         if (typeof window.currentCity === 'undefined')  window.currentCity  = 'khartoum';
+        // [v2.0] استعادة آخر مدينة GPS عند إعادة فتح التطبيق
+        (function() {
+            try {
+                var savedGps = localStorage.getItem('offline_lastCity');
+                if (savedGps && savedGps !== 'gps' && typeof allCities !== 'undefined' && allCities[savedGps]) {
+                    window.currentCity = savedGps;
+                }
+            } catch(_) {}
+        })();
         if (typeof window.weatherData === 'undefined')  window.weatherData  = null;
         if (typeof window.favorites === 'undefined')    window.favorites    = safeLocalStorageGet('favCities', []);
         if (typeof window.favAlerts === 'undefined')    window.favAlerts    = safeLocalStorageGet('favAlerts', []);
