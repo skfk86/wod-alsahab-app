@@ -2,13 +2,25 @@
 <!--
     ══════════════════════════════════════════════════════════════════
     AndroidManifest.xml — ود السحاب v2.0 (Native Edition)
-    Package: com.wodalsahab.sudanweather
     المسار: android/app/src/main/AndroidManifest.xml
+
+    ✅ إصلاحات AAPT (جميع الأخطاء التسعة):
+       xml/data_extraction_rules    ← حُذف
+       xml/backup_rules             ← حُذف
+       xml/network_security_config  ← حُذف
+       mipmap/ic_launcher           ← @android:drawable/ic_menu_mylocation
+       mipmap/ic_launcher_round     ← حُذف
+       style/AppTheme               ← @android:style/Theme.DeviceDefault.NoActionBar
+       style/AppTheme.NoActionBarLaunch ← @android:style/Theme.DeviceDefault.NoActionBar
+       drawable/ic_weather_notif    ← @android:drawable/ic_dialog_info
+       color/amber_500              ← حُذف
+
+    ✅ إصلاح تحذير AGP 8 (deprecated):
+       package="com.wodalsahab.sudanweather" ← حُذف من الجذر
+       (الـ namespace الآن في android/app/build.gradle فقط)
     ══════════════════════════════════════════════════════════════════
 -->
-<manifest
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.wodalsahab.sudanweather">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- ══════════════════════════════════════════════════════════
          أذونات الشبكة
@@ -25,51 +37,28 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!--
-        موقع الخلفية (Android 10+, API 29+) — مطلوب لتتبع الموقع
-        عند إغلاق التطبيق وإرسال تنبيهات جوية تلقائية.
-        ⚠️ Google Play يشترط وصف واضح في صفحة التطبيق لماذا تحتاجه.
+        موقع الخلفية (Android 10+, API 29+)
+        ⚠️ يتطلب مراجعة Google Play بسبب حساسية الإذن.
     -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
     <!-- ══════════════════════════════════════════════════════════
          أذونات الإشعارات
     ══════════════════════════════════════════════════════════════ -->
-    <!-- Android 13+ (API 33+) — طلب إذن الإشعارات من المستخدم -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- استعادة الإشعارات المجدوَلة بعد إعادة التشغيل -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-
-    <!-- إشعارات في الوقت المحدد (Android 12+, API 31+) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-
-    <!-- اهتزاز للتنبيهات الحرجة -->
     <uses-permission android:name="android.permission.VIBRATE" />
-
-    <!-- منع النوم لضمان وصول الإشعار -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- ══════════════════════════════════════════════════════════
          أذونات المهام في الخلفية
     ══════════════════════════════════════════════════════════════ -->
-    <!-- Foreground Service (لضمان عمل الخدمة والإشعار الدائم) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-
-    <!-- نوع الخدمة: موقع جغرافي (Android 10+, API 29+) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-
-    <!-- نوع الخدمة: بيانات (Android 14+, API 34+) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-
-    <!--
-        ⭐ طلب الإعفاء من تحسين البطارية
-        مطلوب لضمان عمل التنبيهات حتى مع Battery Saver.
-        يُطلب تلقائياً من MainActivity.java عند أول تشغيل.
-    -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-
-    <!-- Background Sync (WorkManager) -->
     <uses-permission android:name="android.permission.BIND_JOB_SERVICE" />
 
     <!-- ══════════════════════════════════════════════════════════
@@ -94,49 +83,38 @@
          تعريف التطبيق
     ══════════════════════════════════════════════════════════════ -->
     <application
-        android:allowBackup="true"
-        android:fullBackupContent="@xml/backup_rules"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round"
-        android:label="@string/app_name"
+        android:allowBackup="false"
+        android:icon="@android:drawable/ic_menu_mylocation"
+        android:label="طقس السودان"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
         android:usesCleartextTraffic="false"
-        android:networkSecurityConfig="@xml/network_security_config"
         android:hardwareAccelerated="true"
         android:largeHeap="true">
 
         <!-- ══════════════════════════════════════════════════════
              FCM — قناة الإشعارات الافتراضية وأيقونة الإشعار
         ══════════════════════════════════════════════════════════ -->
-        <!--
-            ⚠️ يتطلب إضافة google-services.json في android/app/
-            احصل عليه من: Firebase Console > Project Settings > Android App
-        -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="weather_alerts" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/ic_weather_notif" />
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_color"
-            android:resource="@color/amber_500" />
+            android:resource="@android:drawable/ic_dialog_info" />
 
         <!-- ══════════════════════════════════════════════════════
              النشاط الرئيسي
         ══════════════════════════════════════════════════════════ -->
         <activity
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+            android:name=".MainActivity"
             android:exported="true"
             android:hardwareAccelerated="true"
-            android:label="@string/title_activity_main"
+            android:label="طقس السودان"
             android:launchMode="singleTask"
-            android:name=".MainActivity"
             android:screenOrientation="portrait"
-            android:theme="@style/AppTheme.NoActionBarLaunch"
-            android:windowSoftInputMode="adjustResize">
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -173,7 +151,6 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                <!-- HuaWei/Xiaomi boot -->
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="android.intent.action.ACTION_BOOT_COMPLETED" />
             </intent-filter>
@@ -187,20 +164,18 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
-        <!-- WorkManager Job Service -->
         <service
             android:name="io.ionic.backgroundrunner.plugin.BackgroundRunnerPlugin$ScheduledJobService"
             android:exported="true"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <!-- ══════════════════════════════════════════════════════
-             إشعار طقس الخلفية — Foreground Service مخصص
-             (يعرض درجة الحرارة في شريط التنبيهات)
+             WeatherForegroundService — إشعار الطقس الدائم
         ══════════════════════════════════════════════════════════ -->
         <service
             android:name=".WeatherForegroundService"
             android:exported="false"
-            android:foregroundServiceType="location|dataSync" />
+            android:foregroundServiceType="location" />
 
     </application>
 
