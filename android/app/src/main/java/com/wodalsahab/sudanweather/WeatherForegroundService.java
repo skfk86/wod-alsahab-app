@@ -5,43 +5,44 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.ServiceCompat;
 
 /**
  * WeatherForegroundService — طقس السودان v2.0
  * ════════════════════════════════════════════════
- * خدمة Foreground تعرض درجة الحرارة الحالية
- * في شريط التنبيهات باستمرار حتى مع إغلاق التطبيق.
- *
+ * خدمة Foreground تعرض درجة الحرارة الحالية في شريط التنبيهات.
  * المسار: android/app/src/main/java/com/wodalsahab/sudanweather/
  *
- * يُستدعى من capacitor-bridge.js عبر:
- *   updateStickyNotif(temp, desc, city)
+ * إصلاحات جذور الأخطاء:
+ *   [FIX-8] startForeground() أُضيف إليها foregroundServiceType
+ *           مطلوب صراحةً في Android 14+ (API 34) — targetSdkVersion=34
+ *           بدونه: ForegroundServiceStartNotAllowedException عند التشغيل
  *
- * القناة المستخدمة: weather_persistent (IMPORTANCE_LOW — بدون صوت)
+ *   [FIX-9] stopForeground(true) → ServiceCompat.stopForeground()
+ *           stopForeground(boolean) deprecated منذ API 33.
+ *           ServiceCompat يُوفّر API موحَّداً لكل إصدارات Android.
  */
 public class WeatherForegroundService extends Service {
 
-    private static final String TAG            = "WodWeatherService";
-    private static final int    NOTIF_ID       = 9001;
-    private static final String CH_PERSISTENT  = "weather_persistent";
+    private static final String TAG           = "WodWeatherService";
+    private static final int    NOTIF_ID      = 9001;
+    private static final String CH_PERSISTENT = "weather_persistent";
 
-    /* ── الإجراءات المدعومة ── */
     public static final String ACTION_START  = "com.wodalsahab.sudanweather.START_WEATHER";
     public static final String ACTION_UPDATE = "com.wodalsahab.sudanweather.UPDATE_WEATHER";
     public static final String ACTION_STOP   = "com.wodalsahab.sudanweather.STOP_WEATHER";
 
-    /* ── مفاتيح Intent Extras ── */
     public static final String EXTRA_TEMP = "temp";
     public static final String EXTRA_DESC = "desc";
     public static final String EXTRA_CITY = "city";
 
-    // حالة الطقس الأخيرة — تُحفظ لإعادة عرضها بعد إعادة تشغيل الجهاز
     private String lastTemp = "---";
     private String lastDesc = "جاري التحديث...";
     private String lastCity = "السودان";
@@ -59,8 +60,7 @@ public class WeatherForegroundService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null) {
-            // أُعيد التشغيل تلقائياً بعد القتل — ابدأ بآخر بيانات
-            startForegroundWithNotif(lastTemp, lastDesc, lastCity);
+            startForegroundCompat(lastTemp, lastDesc, lastCity);
             return START_STICKY;
         }
 
@@ -71,7 +71,9 @@ public class WeatherForegroundService extends Service {
 
             case ACTION_STOP:
                 Log.d(TAG, "WeatherForegroundService: STOP");
-                stopForeground(true);
+                // [FIX-9] ServiceCompat.stopForeground بدلاً من stopForeground(true)
+                //         stopForeground(boolean) deprecated منذ API 33
+                ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
                 stopSelf();
                 break;
 
@@ -86,18 +88,17 @@ public class WeatherForegroundService extends Service {
                 if (desc != null) lastDesc = desc;
                 if (city != null) lastCity = city;
 
-                startForegroundWithNotif(lastTemp, lastDesc, lastCity);
+                startForegroundCompat(lastTemp, lastDesc, lastCity);
                 break;
         }
 
-        // START_STICKY: أعد التشغيل تلقائياً عند إنهاء الخدمة بالقوة
         return START_STICKY;
     }
 
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return null; // لا نحتاج Bound Service
+        return null;
     }
 
     @Override
@@ -110,10 +111,26 @@ public class WeatherForegroundService extends Service {
        بناء الإشعار الدائم
     ══════════════════════════════════════════════════════ */
 
-    private void startForegroundWithNotif(String temp, String desc, String city) {
+    /**
+     * [FIX-8] startForegroundCompat — يمرّر foregroundServiceType لـ API 34+
+     *
+     * Android 14 (API 34) مع targetSdkVersion=34 يُلزم تمرير
+     * FOREGROUND_SERVICE_TYPE_LOCATION عند استدعاء startForeground().
+     * بدونه يُطلق النظام ForegroundServiceStartNotAllowedException.
+     *
+     * ServiceCompat.startForeground() يُوحّد هذا السلوك لكل الإصدارات.
+     */
+    private void startForegroundCompat(String temp, String desc, String city) {
         try {
             Notification notif = buildNotification(temp, desc, city);
-            startForeground(NOTIF_ID, notif);
+
+            ServiceCompat.startForeground(
+                    this,
+                    NOTIF_ID,
+                    notif,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            );
+
             Log.d(TAG, "Sticky notif updated: " + temp + " / " + city);
         } catch (Exception e) {
             Log.w(TAG, "startForeground failed: " + e.getMessage());
@@ -121,7 +138,6 @@ public class WeatherForegroundService extends Service {
     }
 
     private Notification buildNotification(String temp, String desc, String city) {
-        // Intent لفتح التطبيق عند الضغط على الإشعار
         Intent tapIntent = new Intent(this, MainActivity.class);
         tapIntent.setAction(Intent.ACTION_MAIN);
         tapIntent.addCategory(Intent.CATEGORY_LAUNCHER);
@@ -138,25 +154,23 @@ public class WeatherForegroundService extends Service {
         String title = "☁ طقس السودان — " + city;
         String body  = temp + "°م  ·  " + desc;
 
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CH_PERSISTENT)
+        return new NotificationCompat.Builder(this, CH_PERSISTENT)
                 .setContentTitle(title)
                 .setContentText(body)
                 .setSmallIcon(getSmallIconRes())
-                .setColor(0xFFF59E0B)           // لون الأيقونة: برتقالي (--accent)
+                .setColor(0xFFF59E0B)
                 .setContentIntent(tapPending)
-                .setOngoing(true)               // ← دائم لا يُغلق بالسحب
+                .setOngoing(true)
                 .setAutoCancel(false)
-                .setSilent(true)                // ← بدون صوت أو اهتزاز
-                .setShowWhen(false)             // لا تُظهر الوقت (يتغير باستمرار)
+                .setSilent(true)
+                .setShowWhen(false)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setPriority(NotificationCompat.PRIORITY_LOW);
-
-        return builder.build();
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build();
     }
 
     /**
-     * إرجاع معرّف أيقونة الإشعار.
-     * يحاول ic_weather_notif أولاً، ويتراجع إلى الأيقونة الافتراضية.
+     * يُحاول ic_weather_notif أولاً، ويتراجع إلى الأيقونة الافتراضية.
      */
     private int getSmallIconRes() {
         try {
@@ -173,12 +187,8 @@ public class WeatherForegroundService extends Service {
        API ثابتة — للاستدعاء من خارج الخدمة
     ══════════════════════════════════════════════════════ */
 
-    /**
-     * تشغيل/تحديث الإشعار الدائم.
-     * مثال: WeatherForegroundService.update(context, "38", "غائم جزئياً", "الخرطوم");
-     */
     public static void update(android.content.Context ctx,
-                               String temp, String desc, String city) {
+                              String temp, String desc, String city) {
         Intent intent = new Intent(ctx, WeatherForegroundService.class);
         intent.setAction(ACTION_UPDATE);
         intent.putExtra(EXTRA_TEMP, temp);
@@ -192,9 +202,6 @@ public class WeatherForegroundService extends Service {
         }
     }
 
-    /**
-     * إيقاف الإشعار الدائم.
-     */
     public static void stop(android.content.Context ctx) {
         Intent intent = new Intent(ctx, WeatherForegroundService.class);
         intent.setAction(ACTION_STOP);

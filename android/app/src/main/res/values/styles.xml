@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    ══════════════════════════════════════════════════════════════════
+    res/values/styles.xml — ود السحاب v2.0
+    المسار: android/app/src/main/res/values/styles.xml
+
+    [FIX-7] ملف جديد لإصلاح RuntimeException:
+      IllegalStateException: You need to use a Theme.AppCompat theme
+      (or descendant) with this activity.
+
+    الجذر: BridgeActivity (Capacitor) يرث من AppCompatActivity.
+    AppCompatActivity يرفض تشغيله مع Theme.DeviceDefault
+    لأنه لا يرث من Theme.AppCompat.
+
+    الحل: تعريف AppTheme و AppTheme.NoActionBarLaunch
+    بآباء من Theme.MaterialComponents (متوفر عبر material:1.11.0).
+    ══════════════════════════════════════════════════════════════════
+-->
+<resources>
+
+    <!--
+        الثيم الأساسي للتطبيق.
+        الأب: Theme.MaterialComponents.DayNight.NoActionBar
+              ↑ يرث من Theme.AppCompat → يُرضي AppCompatActivity.
+              ↑ DayNight: يدعم الوضع الليلي التلقائي.
+              ↑ NoActionBar: يخفي ActionBar الافتراضي.
+    -->
+    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- ألوان التطبيق (تتطابق مع --accent في CSS) -->
+        <item name="colorPrimary">#f59e0b</item>
+        <item name="colorPrimaryVariant">#d97706</item>
+        <item name="colorOnPrimary">#0d1117</item>
+        <item name="colorSecondary">#3b82f6</item>
+        <item name="colorOnSecondary">#ffffff</item>
+
+        <!-- خلفية التطبيق (تتطابق مع --bg-primary في CSS) -->
+        <item name="android:windowBackground">#0d1117</item>
+        <item name="android:statusBarColor">#0d1117</item>
+        <item name="android:navigationBarColor">#0d1117</item>
+
+        <!-- لا ActionBar -->
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+
+        <!-- WebView يملأ الشاشة بالكامل -->
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+
+    <!--
+        ثيم شاشة الإطلاق (Splash).
+        يُستخدم على Activity قبل تحميل WebView.
+        يُبقي الشاشة سوداء لتتطابق مع خلفية التطبيق.
+    -->
+    <style name="AppTheme.NoActionBarLaunch" parent="AppTheme">
+        <item name="android:windowBackground">#0d1117</item>
+        <item name="android:windowFullscreen">false</item>
+    </style>
+
+</resources>
