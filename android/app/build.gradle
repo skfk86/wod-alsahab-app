@@ -1,52 +1,42 @@
 // ══════════════════════════════════════════════════════════════════
 // build.gradle (app) — ود السحاب v2.0 (طقس السودان)
 // المسار: android/app/build.gradle
-// JDK 21 · AGP 8.x · Capacitor 6
 // ══════════════════════════════════════════════════════════════════
 
 apply plugin: 'com.android.application'
 
 android {
-    // ── Namespace (مطابق للـ applicationId — مطلوب في AGP 7+) ────
+    // تحديد الـ Namespace لمطابقة كود الجافا والمانيفست
     namespace "com.wodalsahab.sudanweather"
 
     compileSdk rootProject.ext.compileSdkVersion
 
     defaultConfig {
-        // ── applicationId مطابق للـ namespace ─────────────────────
         applicationId "com.wodalsahab.sudanweather"
-
-        minSdk     rootProject.ext.minSdkVersion   // 22 (Android 5.1 Lollipop)
-        targetSdk  rootProject.ext.targetSdkVersion // 34 (Android 14)
-
+        minSdk    rootProject.ext.minSdkVersion    // 22
+        targetSdk rootProject.ext.targetSdkVersion // 34
         versionCode 2
         versionName "2.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-
-        // ── دعم RTL (العربية) ─────────────────────────────────────
-        multiDexEnabled true
     }
 
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            // signingConfig signingConfigs.release  // فعّل عند رفع AAB على Play
         }
         debug {
             debuggable true
         }
     }
 
-    // ── Java 21 (مطابق لـ JDK 21 في البيئة) ─────────────────────
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
     }
 
-    // ── تجنّب خطأ "More than one file was found" ─────────────────
-    packagingOptions {
+    packaging {
         resources {
             excludes += [
                 'META-INF/LICENSE',
@@ -58,53 +48,40 @@ android {
         }
     }
 
-    // ── إعدادات اللينت ───────────────────────────────────────────
     lint {
         abortOnError false
         checkReleaseBuilds false
     }
 }
 
-repositories {
-    google()
-    mavenCentral()
-}
-
 dependencies {
+    // ─── الربط الأساسي مع Capacitor (حل مشكلة BridgeActivity) ───
+    implementation project(':capacitor-android')
 
-    // ── Capacitor Core ────────────────────────────────────────────
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
-
-    // ── AndroidX Core ─────────────────────────────────────────────
+    // AndroidX Core
     implementation "androidx.appcompat:appcompat:$rootProject.ext.androidxAppCompatVersion"
     implementation "androidx.core:core:$rootProject.ext.androidxCoreVersion"
     implementation "androidx.activity:activity:$rootProject.ext.androidxActivityVersion"
     implementation "androidx.fragment:fragment:$rootProject.ext.androidxFragmentVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$rootProject.ext.androidxCoordinatorLayoutVersion"
 
-    // ── Splash Screen (مطلوب صراحةً في المهمة) ───────────────────
+    // الميزات المتقدمة (Splash Screen & WebKit)
     implementation "androidx.core:core-splashscreen:$rootProject.ext.coreSplashScreenVersion"
-
-    // ── WebKit (مطلوب صراحةً في المهمة) ──────────────────────────
     implementation "androidx.webkit:webkit:$rootProject.ext.androidxWebkitVersion"
 
-    // ── WorkManager (BackgroundRunner Plugin) ─────────────────────
+    // خدمات الخلفية والموقع (Wad Alsahab Core)
     implementation "androidx.work:work-runtime:$rootProject.ext.androidxWorkVersion"
-
-    // ── Material Design ───────────────────────────────────────────
     implementation "com.google.android.material:material:$rootProject.ext.materialVersion"
-
-    // ── Play Services Location (@capacitor/geolocation) ──────────
     implementation "com.google.android.gms:play-services-location:$rootProject.ext.playServicesLocationVersion"
 
-    // ── MultiDex (minSdk < 21 safety) ────────────────────────────
-    implementation 'androidx.multidex:multidex:2.0.1'
+    // التبعيات الخاصة بـ Capacitor Plugins (يتم سحبها تلقائياً عند المزامنة)
+    implementation project(':capacitor-cordova-android-plugins')
 
-    // ── Testing ───────────────────────────────────────────────────
+    // Testing
     testImplementation "junit:junit:$rootProject.ext.junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$rootProject.ext.androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$rootProject.ext.androidxEspressoCoreVersion"
 }
 
-// ── Capacitor Plugin Dependencies (يُولَّد تلقائياً بـ npx cap sync) ──
+// دمج إعدادات المكونات الإضافية (Plugins)
 apply from: 'capacitor.build.gradle'
