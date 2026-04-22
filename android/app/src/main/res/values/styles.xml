@@ -26,14 +26,14 @@
               ↑ NoActionBar: يخفي ActionBar الافتراضي.
     -->
     <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- ألوان التطبيق (تتطابق مع --accent في CSS) -->
+        <!-- ألوان التطبيق (متطابقة مع متغير accent في CSS) -->
         <item name="colorPrimary">#f59e0b</item>
         <item name="colorPrimaryVariant">#d97706</item>
         <item name="colorOnPrimary">#0d1117</item>
         <item name="colorSecondary">#3b82f6</item>
         <item name="colorOnSecondary">#ffffff</item>
 
-        <!-- خلفية التطبيق (تتطابق مع --bg-primary في CSS) -->
+        <!-- خلفية التطبيق (متطابقة مع متغير bg-primary في CSS) -->
         <item name="android:windowBackground">#0d1117</item>
         <item name="android:statusBarColor">#0d1117</item>
         <item name="android:navigationBarColor">#0d1117</item>
