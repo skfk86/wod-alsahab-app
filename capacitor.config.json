@@ -1,5 +1,80 @@
 {
-  "appId": "com.ali.wadalsahab",
-  "appName": "ود السحاب",
-  "webDir": "ww2"
+  "appId":   "com.wodalsahab.sudanweather",
+  "appName": "طقس السودان",
+  "webDir":  "www",
+
+  "server": {
+    "androidScheme": "https",
+    "cleartext": false
+  },
+
+  "plugins": {
+
+    "LocalNotifications": {
+      "smallIcon":   "ic_weather_notif",
+      "iconColor":   "#f59e0b",
+      "sound":       "default",
+      "importance":  5
+    },
+
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+
+    "BackgroundRunner": {
+      "label":     "com.wodalsahab.sudanweather.background",
+      "src":       "background.js",
+      "event":     "weatherCheck",
+      "repeat":    true,
+      "interval":  180,
+      "autoStart": true
+    },
+
+    "Geolocation": {
+      "permissions": ["location", "coarseLocation"]
+    },
+
+    "Network": {},
+
+    "Preferences": {
+      "group": "WodAlSahabPrefs"
+    },
+
+    "SplashScreen": {
+      "launchShowDuration":        2000,
+      "launchAutoHide":            true,
+      "backgroundColor":           "#0d1117",
+      "androidSplashResourceName": "splash",
+      "showSpinner":               false,
+      "spinnerColor":              "#f59e0b"
+    },
+
+    "StatusBar": {
+      "style":           "DARK",
+      "backgroundColor": "#0d1117",
+      "overlaysWebView": false
+    },
+
+    "Keyboard": {
+      "resize":             "body",
+      "resizeOnFullScreen": true
+    }
+  },
+
+  "android": {
+    "allowMixedContent":           false,
+    "captureInput":                true,
+    "webContentsDebuggingEnabled": false,
+    "loggingBehavior":             "none",
+    "useLegacyBridge":             false,
+    "appendUserAgent":             "WodAlSahab/2.0 Sudan-Weather-Native",
+    "minWebViewVersion":           60,
+    "backgroundColor":             "#0d1117",
+    "overrideUserAgent":           null,
+    "initialFocus":                true,
+    "buildOptions": {
+      "keystoreAlias": "wod_alsahab_key",
+      "releaseType":   "AAB"
+    }
+  }
 }

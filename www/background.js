@@ -1,5 +1,5 @@
 /**
- * background.js — ود السحاب v2.0
+ * background.js — طقس السودان v2.0
  * BackgroundRunner Script (@capacitor/background-runner)
  *
  * ⚠️ يعمل في JavaScriptCore — لا يوجد DOM ولا fetch عادي.
@@ -59,7 +59,7 @@ addEventListener('weatherCheck', async function (resolve, reject, args) {
         await CapacitorLocalNotifications.schedule({
             notifications: [{
                 id:         9001,
-                title:      '☁ ود السحاب — ' + city,
+                title:      '☁ طقس السودان — ' + city,
                 body:       Math.round(temp) + '°م  ·  ' + desc,
                 channelId:  'weather_persistent',
                 ongoing:    true,
@@ -113,7 +113,7 @@ addEventListener('weatherCheck', async function (resolve, reject, args) {
             await CapacitorLocalNotifications.schedule({
                 notifications: [{
                     id:        7777,
-                    title:     '☁ ود السحاب',
+                    title:     '☁ طقس السودان',
                     body:      'اضغط لتحديث بيانات الطقس',
                     channelId: 'weather_daily',
                     schedule:  { at: new Date() },
@@ -155,7 +155,7 @@ function _getAlertTitle(code, temp, wind) {
     if (code >= 95)    return '⚡ تحذير: عواصف رعدية';
     if (temp > 45)     return '🌡 تحذير: موجة حر شديدة';
     if (wind > 50)     return '💨 تحذير: رياح شديدة / هبوب';
-    return '⚠ تنبيه طقس — ود السحاب';
+    return '⚠ تنبيه طقس — طقس السودان';
 }
 
 function _getAlertBody(code, temp, wind, city) {
