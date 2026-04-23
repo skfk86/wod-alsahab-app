@@ -25,12 +25,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!-- ══════════════════════════════════════════════════════════
-         أذونات الإشعارات (للتشغيل المحلي فقط)
+         أذونات الإشعارات
     ══════════════════════════════════════════════════════════════ -->
-    <!-- Android 13+ (API 33+) — طلب إذن الإشعارات من المستخدم -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- اهتزاز للتنبيهات الحرجة -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- ══════════════════════════════════════════════════════════
@@ -44,12 +41,11 @@
         android:maxSdkVersion="29" />
 
     <!-- ══════════════════════════════════════════════════════════
-         ميزات الجهاز (تصفية Google Play)
+         ميزات الجهاز
     ══════════════════════════════════════════════════════════════ -->
-    <uses-feature android:name="android.hardware.location.gps"     android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
     <uses-feature android:name="android.hardware.location.network" android:required="false" />
-    <uses-feature android:name="android.hardware.location"         android:required="false" />
-
+    <uses-feature android:name="android.hardware.location" android:required="false" />
 
     <!-- ══════════════════════════════════════════════════════════
          تعريف التطبيق
@@ -59,7 +55,6 @@
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
@@ -68,15 +63,17 @@
         android:hardwareAccelerated="true"
         android:largeHeap="true">
 
-        <!-- ══════════════════════════════════════════════════════
-             قناة الإشعارات الافتراضية للإشعارات المحلية
-        ══════════════════════════════════════════════════════════ -->
+        <!-- قناة الإشعارات الافتراضية -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="weather_alerts" />
+        
+        <!-- أيقونة الإشعارات (من الموارد المحلية) -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_weather_notif" />
+        
+        <!-- لون أيقونة الإشعارات -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/amber_500" />
