@@ -1,31 +1,25 @@
 /**
- * capacitor-bridge.js — ود السحاب v2.0
- * الجسر الكامل بين طبقة HTML والميزات الأصيلة (Native)
+ * capacitor-bridge.js — طقس السودان v3.0
+ * الجسر بين WebView وميزات Capacitor الأصيلة.
  *
- * يوفر:
- *   1. GPS تلقائي + بحث Geocoding مع إكمال تلقائي
- *   2. إشعارات محلية (تنبيهات + إشعار دائم)
- *   3. وضع الأوفلاين (حفظ/استعادة آخر بيانات)
- *   4. الوضع الليلي التلقائي
- *   5. شريط بحث المدن مع GPS (يُحقن في UI تلقائياً)
- *
- * الاستخدام: يُحقن تلقائياً في index.html عبر patch_appjs.py
+ * المسار: www/capacitor-bridge.js
  */
 (function () {
     'use strict';
 
-    /* ═══════════════════════════════════════════════════════
-       ثوابت
-    ═══════════════════════════════════════════════════════ */
-    var GEOCODING_API      = 'https://geocoding-api.open-meteo.com/v1/search';
-    var STICKY_NOTIF_ID    = 9001;
-    var CH_ALERTS          = 'weather_alerts';
-    var CH_PERSISTENT      = 'weather_persistent';
-    var CH_DAILY           = 'weather_daily';
+    // ── ثوابت ────────────────────────────────────────────────────────────
+    var GEOCODING_API   = 'https://geocoding-api.open-meteo.com/v1/search';
+    var STICKY_ID       = 9001;
+    var BG_WAKEUP_ID    = 9999;
+    var CH_ALERTS       = 'weather_alerts';
+    var CH_PERSISTENT   = 'weather_persistent';
+    var CH_DAILY        = 'weather_daily';
+    var NOTIF_TTL_MS    = 3 * 60 * 60 * 1000;   // مدة تذكر الإشعار المُرسل (3 ساعات)
+    var FAV_OPS_KEY     = 'fav_ops_queue';       // قائمة عمليات المفضلة المعلقة
+    var SYNC_DELAY_MS   = 900;                   // تأخير المزامنة بعد آخر تغيير
 
-    /* ═══════════════════════════════════════════════════════
-       انتظر تهيئة Capacitor (WebView يحتاج لحظة للتحميل)
-    ═══════════════════════════════════════════════════════ */
+    // ── أدوات مساعدة ────────────────────────────────────────────────────
+
     function _isNative() {
         return (
             typeof window.Capacitor !== 'undefined' &&
@@ -34,9 +28,13 @@
         );
     }
 
+    function _sleep(ms) {
+        return new Promise(function (r) { setTimeout(r, ms); });
+    }
+
     async function _waitCapacitor(maxMs) {
-        maxMs = maxMs || 6000;
         var step = 80, elapsed = 0;
+        maxMs = maxMs || 6000;
         while (!_isNative() && elapsed < maxMs) {
             await _sleep(step);
             elapsed += step;
@@ -44,38 +42,293 @@
         return _isNative();
     }
 
-    function _sleep(ms) {
-        return new Promise(function (r) { setTimeout(r, ms); });
-    }
-
     function _P(name) {
-        // اختصار للوصول للـ Plugin باسمه
-        return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins[name];
+        return window.Capacitor &&
+               window.Capacitor.Plugins &&
+               window.Capacitor.Plugins[name];
     }
 
-    /* ═══════════════════════════════════════════════════════
-       الجسر الرئيسي
-    ═══════════════════════════════════════════════════════ */
-    window.WodBridge = {
+    // ── safeLS: غلاف آمن لـ Capacitor Preferences ────────────────────────
 
-        /* ───────────────────────────────────────────────
-           1. GPS — جلب الموقع الحالي
-        ─────────────────────────────────────────────── */
-        getLocation: async function () {
-            var ready = await _waitCapacitor();
-            if (!ready) {
-                // بيئة المتصفح — استخدم Geolocation API العادي
-                return _browserGeolocation();
+    var _Pref = {
+        async get(key) {
+            var P = _P('Preferences');
+            if (!P) return null;
+            try {
+                var r = await P.get({ key: key });
+                return (r && r.value != null) ? r.value : null;
+            } catch (_) { return null; }
+        },
+        async set(key, value) {
+            var P = _P('Preferences');
+            if (!P) return false;
+            try { await P.set({ key: key, value: String(value) }); return true; }
+            catch (_) { return false; }
+        },
+        async getJSON(key, fallback) {
+            var v = await this.get(key);
+            if (v === null) return fallback !== undefined ? fallback : null;
+            try { return JSON.parse(v); } catch (_) { return fallback !== undefined ? fallback : null; }
+        },
+        async setJSON(key, value) {
+            return await this.set(key, JSON.stringify(value));
+        }
+    };
+
+    /* ════════════════════════════════════════════════════════════════════
+       WodNotif — مدير الإشعارات المركزي (Singleton)
+       المهمة الوحيدة: نقطة دخول واحدة لكل إشعار في التطبيق.
+       يمنع التكرار عبر Deduplication Key محفوظ في Capacitor Preferences.
+    ════════════════════════════════════════════════════════════════════ */
+    var WodNotif = (function () {
+
+        // تحقق من كون الإشعار أُرسل بالفعل خلال آخر 3 ساعات
+        async function _isDuplicate(dedupId) {
+            var sent = await _Pref.getJSON('notif_sent_ids', {});
+            var ts   = sent && sent[dedupId];
+            return ts && (Date.now() - ts) < NOTIF_TTL_MS;
+        }
+
+        // سجّل معرف الإشعار بعد إرساله
+        async function _markSent(dedupId) {
+            var sent = await _Pref.getJSON('notif_sent_ids', {});
+            if (!sent) sent = {};
+            sent[dedupId] = Date.now();
+
+            // احذف السجلات القديمة لمنع تراكم البيانات
+            var cutoff = Date.now() - NOTIF_TTL_MS * 2;
+            Object.keys(sent).forEach(function (k) {
+                if (sent[k] < cutoff) delete sent[k];
+            });
+
+            await _Pref.setJSON('notif_sent_ids', sent);
+        }
+
+        return {
+
+            /**
+             * send(dedupId, title, body, opts)
+             *
+             * @param {string}  dedupId - معرف فريد للحدث (مثل: "dust-storm-2026-04-23")
+             * @param {string}  title
+             * @param {string}  body
+             * @param {object}  opts - { urgent, channelId, sticky, silent }
+             */
+            async send(dedupId, title, body, opts) {
+                opts = opts || {};
+
+                await _waitCapacitor(4000);
+                var LN = _P('LocalNotifications');
+                if (!LN) return null;
+
+                // منع إرسال نفس الإشعار مرتين خلال 3 ساعات
+                if (dedupId && !opts.forceResend) {
+                    var dup = await _isDuplicate(dedupId);
+                    if (dup) return null;
+                }
+
+                var notifId = opts.sticky
+                    ? STICKY_ID
+                    : (opts.id || (Math.floor(Math.random() * 7000) + 1000));
+
+                var channelId = opts.channelId ||
+                    (opts.sticky  ? CH_PERSISTENT :
+                     opts.urgent  ? CH_ALERTS     : CH_DAILY);
+
+                try {
+                    await LN.schedule({
+                        notifications: [{
+                            id:         notifId,
+                            title:      title,
+                            body:       body,
+                            channelId:  channelId,
+                            ongoing:    !!opts.sticky,
+                            autoCancel: !opts.sticky,
+                            silent:     !!opts.silent,
+                            smallIcon:  'ic_weather_notif',
+                            iconColor:  opts.urgent ? '#ef4444' : '#f59e0b',
+                            schedule:   { at: new Date(Date.now() + 300) },
+                            extra: {
+                                type:    opts.type || 'weather_alert',
+                                dedupId: dedupId,
+                                urgent:  !!opts.urgent
+                            }
+                        }]
+                    });
+
+                    if (dedupId) await _markSent(dedupId);
+                    return notifId;
+
+                } catch (e) {
+                    return null;
+                }
+            },
+
+            // تحديث الإشعار الدائم (درجة الحرارة في الشريط)
+            async updateSticky(temp, desc, city) {
+                city = city || 'السودان';
+                desc = desc || '---';
+                var title = '☁ طقس السودان — ' + city;
+                var body  = Math.round(temp) + '°م  ·  ' + desc;
+
+                return await this.send(
+                    null, title, body,
+                    { sticky: true, silent: true, forceResend: true }
+                );
+            },
+
+            // تنبيه حرج (هبوب / عاصفة / حر شديد)
+            async sendAlert(eventKey, title, body) {
+                return await this.send(eventKey, title, body, { urgent: true });
             }
+        };
+    })();
 
-            var Geo = _P('Geolocation');
-            var Pref = _P('Preferences');
+    window.WodNotif = WodNotif;
+
+    /* ════════════════════════════════════════════════════════════════════
+       WodSync — مزامنة المفضلة بين localStorage و Firestore
+       خوارزمية Three-Way Merge:
+         - التغييرات المحلية (إضافة/حذف) تُخزَّن في قائمة عمليات (ops queue)
+         - عند المزامنة: تُطبَّق العمليات على الحالة البعيدة
+         - النتيجة: لا يُفقد تغيير من أي جهاز
+    ════════════════════════════════════════════════════════════════════ */
+    var WodSync = (function () {
+
+        var _timer = null;
+
+        // إضافة عملية للقائمة المعلقة
+        function _pushOp(op, cityKey) {
+            var queue = _readQueue();
+            // ألغِ العملية المعاكسة إذا وجدت (add ثم del لنفس المدينة = لا شيء)
+            var opposite = op === 'add' ? 'del' : 'add';
+            var existingIdx = queue.findIndex(function (e) {
+                return e.city === cityKey && e.op === opposite;
+            });
+            if (existingIdx !== -1) {
+                queue.splice(existingIdx, 1);
+            } else {
+                queue.push({ op: op, city: cityKey, ts: Date.now() });
+            }
+            _writeQueue(queue);
+        }
+
+        function _readQueue() {
+            try {
+                return JSON.parse(localStorage.getItem(FAV_OPS_KEY) || '[]');
+            } catch (_) { return []; }
+        }
+
+        function _writeQueue(queue) {
+            try {
+                localStorage.setItem(FAV_OPS_KEY, JSON.stringify(queue));
+            } catch (_) {}
+        }
+
+        function _clearQueue() {
+            try { localStorage.removeItem(FAV_OPS_KEY); } catch (_) {}
+        }
+
+        /**
+         * syncFavoritesWithFirestore(uid)
+         *
+         * Three-Way Merge:
+         *   1. اقرأ الحالة البعيدة (Firestore) ← base
+         *   2. اقرأ العمليات المحلية المعلقة ← ops
+         *   3. طبّق العمليات على base:
+         *      - add: أضف المدينة إن لم تكن موجودة
+         *      - del: احذف المدينة من النتيجة
+         *   4. احفظ النتيجة في Firestore + localStorage + memory
+         *
+         * سيناريو جهازين:
+         *   جهاز A حذف "kassala" → del op محفوظة
+         *   جهاز B أضاف "nyala"  → add op محفوظة
+         *   النتيجة عند مزامنة كليهما: يبقى nyala ويُحذف kassala ✓
+         */
+        async function syncFavoritesWithFirestore(uid) {
+            if (!uid || !window._fbDB) return;
+
+            var db  = window._fbDB;
+            var ops = _readQueue();
+            if (!ops.length) return;   // لا تغييرات محلية
 
             try {
-                // طلب الإذن
+                var { doc, runTransaction } = await import(
+                    'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js'
+                );
+
+                var docRef = doc(db, 'users', uid);
+
+                await runTransaction(db, async function (tx) {
+                    var snap   = await tx.get(docRef);
+                    var remote = (snap.exists() && snap.data().favCities)
+                        ? snap.data().favCities
+                        : [];
+
+                    // deep copy لمنع الطفرة
+                    var merged = remote.slice();
+
+                    ops.forEach(function (op) {
+                        if (op.op === 'add') {
+                            if (merged.indexOf(op.city) === -1) {
+                                merged.push(op.city);
+                            }
+                        } else if (op.op === 'del') {
+                            var idx = merged.indexOf(op.city);
+                            if (idx !== -1) merged.splice(idx, 1);
+                        }
+                    });
+
+                    tx.set(docRef, { favCities: merged, updatedAt: Date.now() }, { merge: true });
+
+                    // تحديث الذاكرة المحلية بعد النجاح
+                    window.favorites = merged;
+                    try {
+                        localStorage.setItem('favCities', JSON.stringify(merged));
+                    } catch (_) {}
+                });
+
+                _clearQueue();
+
+            } catch (e) {
+                // الشبكة غير متاحة — الـ ops تبقى في القائمة للمحاولة التالية
+            }
+        }
+
+        // جدوِل مزامنة مع debounce (لا ترسل كل ضغطة)
+        function scheduleSync(uid) {
+            if (_timer) clearTimeout(_timer);
+            _timer = setTimeout(function () {
+                _timer = null;
+                syncFavoritesWithFirestore(uid);
+            }, SYNC_DELAY_MS);
+        }
+
+        return {
+            pushAdd:     function (cityKey) { _pushOp('add', cityKey); },
+            pushDel:     function (cityKey) { _pushOp('del', cityKey); },
+            scheduleSync: scheduleSync,
+            syncNow:     syncFavoritesWithFirestore
+        };
+    })();
+
+    window.WodSync = WodSync;
+
+    /* ════════════════════════════════════════════════════════════════════
+       الجسر الرئيسي WodBridge
+    ════════════════════════════════════════════════════════════════════ */
+    window.WodBridge = {
+
+        // 1. GPS
+        getLocation: async function () {
+            var ready = await _waitCapacitor();
+            if (!ready) return _browserGeolocation();
+
+            var Geo = _P('Geolocation');
+            try {
                 var perm = await Geo.requestPermissions({ permissions: ['location', 'coarseLocation'] });
                 if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') {
-                    throw new Error('رُفض إذن الموقع من المستخدم');
+                    throw new Error('رُفض إذن الموقع');
                 }
 
                 var pos = await Geo.getCurrentPosition({
@@ -92,50 +345,32 @@
                     fromGps:  true
                 };
 
-                // حفظ لاستخدامه عند الأوفلاين
-                if (Pref) {
-                    await Pref.set({
-                        key:   'lastKnownLocation',
-                        value: JSON.stringify(result)
-                    });
-                }
-
+                await _Pref.setJSON('lastKnownLocation', result);
                 return result;
 
             } catch (e) {
-                // محاولة استرجاع آخر موقع محفوظ
-                if (Pref) {
-                    try {
-                        var stored = await Pref.get({ key: 'lastKnownLocation' });
-                        if (stored && stored.value) {
-                            var cached = JSON.parse(stored.value);
-                            cached.fromCache = true;
-                            cached.name = cached.name || 'آخر موقع معروف';
-                            return cached;
-                        }
-                    } catch (_) {}
+                // fallback: آخر موقع محفوظ
+                var cached = await _Pref.getJSON('lastKnownLocation', null);
+                if (cached) {
+                    cached.fromCache = true;
+                    cached.name = cached.name || 'آخر موقع معروف';
+                    return cached;
                 }
                 throw e;
             }
         },
 
-        /* ───────────────────────────────────────────────
-           2. بحث المدن (Geocoding)
-           أولاً: قاعدة المدن المحلية → ثانياً: Open-Meteo
-        ─────────────────────────────────────────────── */
+        // 2. بحث المدن
         searchCity: async function (query) {
             if (!query || query.trim().length < 2) return [];
-
-            // ابحث أولاً في المدن المحلية (فوري)
             var local = _searchLocalCities(query);
             if (local.length >= 3) return local;
 
-            // ثم Open-Meteo Geocoding
             try {
                 var url = GEOCODING_API
                     + '?name=' + encodeURIComponent(query)
                     + '&count=8&language=ar&format=json';
-                var res = await fetch(url, {
+                var res  = await fetch(url, {
                     signal: (typeof makeTimeout === 'function') ? makeTimeout(8000) : undefined
                 });
                 var data = await res.json();
@@ -152,8 +387,7 @@
                     };
                 });
 
-                // دمج: المدن المحلية أولاً ثم النتائج الخارجية (بدون تكرار)
-                var names = local.map(function (c) { return c.name; });
+                var names  = local.map(function (c) { return c.name; });
                 var unique = remote.filter(function (c) { return names.indexOf(c.name) === -1; });
                 return local.concat(unique).slice(0, 8);
 
@@ -162,335 +396,232 @@
             }
         },
 
-        /* ───────────────────────────────────────────────
-           3. إرسال تنبيه طقس فوري
-        ─────────────────────────────────────────────── */
+        // 3. تنبيه طقس (يستخدم WodNotif داخلياً)
         scheduleWeatherAlert: async function (opts) {
-            // opts: { title, body, id?, urgent?, channelId? }
-            await _waitCapacitor();
-            var LN = _P('LocalNotifications');
-            if (!LN) return null;
-
-            var notifId = opts.id || (Math.floor(Math.random() * 8000) + 1000);
-
-            try {
-                await LN.schedule({
-                    notifications: [{
-                        id:         notifId,
-                        title:      opts.title || 'تنبيه طقس السودان',
-                        body:       opts.body  || '',
-                        channelId:  opts.channelId || (opts.urgent ? CH_ALERTS : CH_DAILY),
-                        schedule:   { at: new Date(Date.now() + 500) },
-                        sound:      'default',
-                        autoCancel: true,
-                        smallIcon:  'ic_weather_notif',
-                        iconColor:  opts.urgent ? '#ef4444' : '#f59e0b',
-                        extra: {
-                            type:   'weather_alert',
-                            urgent: !!opts.urgent
-                        }
-                    }]
-                });
-                return notifId;
-            } catch (e) {
-                console.warn('[WodBridge] scheduleWeatherAlert:', e.message);
-                return null;
-            }
+            opts = opts || {};
+            var dedupId = opts.dedupId ||
+                ('alert-' + (opts.type || 'wx') + '-' + new Date().toDateString());
+            return await WodNotif.send(
+                dedupId,
+                opts.title || 'تنبيه طقس السودان',
+                opts.body  || '',
+                { urgent: !!opts.urgent, channelId: opts.channelId }
+            );
         },
 
-        /* ───────────────────────────────────────────────
-           4. الإشعار الدائم (Sticky) — درجة الحرارة
-           يظهر في شريط التنبيهات حتى مع إغلاق التطبيق
-        ─────────────────────────────────────────────── */
+        // 4. الإشعار الدائم
         updateStickyNotif: async function (temp, desc, city) {
-            await _waitCapacitor();
-            var LN = _P('LocalNotifications');
-            if (!LN) return false;
-
-            city = city || 'السودان';
-            desc = desc || 'جاري التحديث...';
-            var tempStr = (temp !== null && temp !== undefined)
-                ? (Math.round(temp) + '°م')
-                : '---';
-
-            // إلغاء الإشعار الدائم القديم أولاً
-            try {
-                await LN.cancel({ notifications: [{ id: STICKY_NOTIF_ID }] });
-            } catch (_) {}
-
-            try {
-                await LN.schedule({
-                    notifications: [{
-                        id:         STICKY_NOTIF_ID,
-                        title:      '☁ ود السحاب — ' + city,
-                        body:       tempStr + '  ·  ' + desc,
-                        channelId:  CH_PERSISTENT,
-                        ongoing:    true,      // ← إشعار دائم لا يُغلق
-                        autoCancel: false,
-                        silent:     true,      // ← بدون صوت أو اهتزاز
-                        smallIcon:  'ic_weather_notif',
-                        iconColor:  '#f59e0b',
-                        schedule:   { at: new Date(Date.now() + 300) },
-                        extra: { type: 'sticky_weather' }
-                    }]
-                });
-                return true;
-            } catch (e) {
-                console.warn('[WodBridge] updateStickyNotif:', e.message);
-                return false;
-            }
+            return await WodNotif.updateSticky(temp, desc, city);
         },
 
-        /* ───────────────────────────────────────────────
-           5. إلغاء الإشعار الدائم
-        ─────────────────────────────────────────────── */
-        cancelStickyNotif: async function () {
-            await _waitCapacitor();
-            var LN = _P('LocalNotifications');
-            if (!LN) return;
-            try {
-                await LN.cancel({ notifications: [{ id: STICKY_NOTIF_ID }] });
-            } catch (_) {}
-        },
-
-        /* ───────────────────────────────────────────────
-           6. طلب إذن الإشعارات
-        ─────────────────────────────────────────────── */
-        requestNotifPermission: async function () {
-            await _waitCapacitor();
-            var LN = _P('LocalNotifications');
-            if (!LN) return false;
-            try {
-                var perm = await LN.requestPermissions();
-                return perm.display === 'granted';
-            } catch (_) { return false; }
-        },
-
-        /* ───────────────────────────────────────────────
-           7. حالة الشبكة
-        ─────────────────────────────────────────────── */
-        isOnline: async function () {
-            if (!_isNative()) return navigator.onLine;
-            var Net = _P('Network');
-            if (!Net) return navigator.onLine;
-            try {
-                var status = await Net.getStatus();
-                return status.connected;
-            } catch (_) { return navigator.onLine; }
-        },
-
-        onNetworkChange: function (cb) {
-            _waitCapacitor().then(function () {
-                var Net = _P('Network');
-                if (Net) {
-                    Net.addListener('networkStatusChange', cb).catch(function () {});
-                }
+        // 5. حفظ بيانات الأوفلاين
+        saveOfflineData: async function (cityKey, data) {
+            await _Pref.setJSON('offline_wx_' + cityKey, {
+                ts:   Date.now(),
+                data: data
             });
-            // fallback للمتصفح
-            window.addEventListener('online',  function () { cb({ connected: true,  connectionType: 'wifi' }); });
-            window.addEventListener('offline', function () { cb({ connected: false, connectionType: 'none' }); });
         },
 
-        /* ───────────────────────────────────────────────
-           8. حفظ / استرجاع بيانات الأوفلاين
-        ─────────────────────────────────────────────── */
-        saveOfflineData: async function (cityKey, weatherData) {
-            var payload = JSON.stringify({ data: weatherData, ts: Date.now(), cityKey: cityKey });
-
-            // أولاً: Capacitor Preferences (أكثر موثوقية)
-            if (_isNative()) {
-                var Pref = _P('Preferences');
-                if (Pref) {
-                    try {
-                        await Pref.set({ key: 'offline_wx_' + cityKey, value: payload });
-                        await Pref.set({ key: 'offline_lastCity',       value: cityKey });
-                        return true;
-                    } catch (_) {}
-                }
-            }
-
-            // ثانياً: localStorage (fallback)
-            try {
-                localStorage.setItem('offline_wx_' + cityKey, payload);
-                localStorage.setItem('offline_lastCity', cityKey);
-                return true;
-            } catch (_) { return false; }
+        // 6. قراءة بيانات الأوفلاين
+        getOfflineData: async function (cityKey) {
+            return await _Pref.getJSON('offline_wx_' + cityKey, null);
         },
 
-        loadOfflineData: async function (cityKey) {
-            var key = cityKey;
-
-            if (!key) {
-                // جلب آخر مدينة محفوظة
-                if (_isNative()) {
-                    var Pref = _P('Preferences');
-                    if (Pref) {
-                        try {
-                            var r = await Pref.get({ key: 'offline_lastCity' });
-                            key = r && r.value;
-                        } catch (_) {}
-                    }
-                }
-                if (!key) key = localStorage.getItem('offline_lastCity');
-            }
-
-            if (!key) return null;
-
-            // Capacitor Preferences
-            if (_isNative()) {
-                var Pref2 = _P('Preferences');
-                if (Pref2) {
-                    try {
-                        var stored = await Pref2.get({ key: 'offline_wx_' + key });
-                        if (stored && stored.value) return JSON.parse(stored.value);
-                    } catch (_) {}
-                }
-            }
-
-            // localStorage fallback
-            try {
-                var raw = localStorage.getItem('offline_wx_' + key);
-                return raw ? JSON.parse(raw) : null;
-            } catch (_) { return null; }
-        },
-
-        /* ───────────────────────────────────────────────
-           9. الوضع الليلي التلقائي
-        ─────────────────────────────────────────────── */
-        initDarkMode: function () {
-            // [FIX-3] احترم تفضيل الثيم الموجود في التطبيق أولاً (مخزون بمفتاح 'theme')
-            var appTheme = localStorage.getItem('theme');
-            if (appTheme === 'light' || appTheme === 'dark') {
-                _applyDarkMode(appTheme === 'dark');
-                return;
-            }
-
-            var saved = localStorage.getItem('wodDarkMode');
-
-            if (saved === null) {
-                // تلقائي بناءً على النظام
-                var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                _applyDarkMode(prefersDark);
-            } else {
-                _applyDarkMode(saved === 'true');
-            }
-
-            // تابع تغييرات النظام
-            window.matchMedia('(prefers-color-scheme: dark)')
-                .addEventListener('change', function (e) {
-                    if (localStorage.getItem('wodDarkMode') === null &&
-                        localStorage.getItem('theme') === null) {
-                        _applyDarkMode(e.matches);
-                    }
-                });
-        },
-
-        toggleDarkMode: function () {
-            var isDark = document.body.classList.contains('wod-dark');
-            _applyDarkMode(!isDark);
-            localStorage.setItem('wodDarkMode', String(!isDark));
-        },
-
-        /* ───────────────────────────────────────────────
-           10. تهيئة كاملة (يُستدعى عند DOMContentLoaded)
-        ─────────────────────────────────────────────── */
+        // تهيئة القنوات + مستمعات Capacitor
         init: async function () {
+            if (window._capBridgeLoaded) return;
+            window._capBridgeLoaded = true;
+
             var ready = await _waitCapacitor(8000);
-            window._wodNative = ready;
-            window._wodBridgeMode = ready ? 'native' : 'browser';
+            if (!ready) return;
 
-            // الوضع الليلي
-            this.initDarkMode();
+            // إنشاء قنوات الإشعارات
+            await _ensureChannels();
 
-            if (ready) {
-                // طلب أذونات الإشعارات
-                await this.requestNotifPermission();
-
-                // مراقبة الشبكة
-                this.onNetworkChange(function (status) {
+            // مستمع: تغيير الشبكة
+            var Net = _P('Network');
+            if (Net) {
+                try {
+                    var status = await Net.getStatus();
                     window._wodOnline = status.connected;
-                    window.dispatchEvent(
-                        new CustomEvent('wodNetworkChange', { detail: status })
-                    );
                     _showOfflineBanner(!status.connected);
+                } catch (_) {}
+
+                Net.addListener('networkStatusChange', function (s) {
+                    window._wodOnline = s.connected;
+                    _showOfflineBanner(!s.connected);
+                    window.dispatchEvent(
+                        new CustomEvent('wodNetworkChange', { detail: { connected: s.connected } })
+                    );
                 });
             }
 
-            // حالة الشبكة الأولية
-            window._wodOnline = await this.isOnline();
+            // مستمع: الإشعار الصامت من BackgroundRunner (id: 9999)
+            var LN = _P('LocalNotifications');
+            if (LN) {
+                LN.addListener('localNotificationActionPerformed', function (ev) {
+                    var notif = ev.notification || {};
+                    var extra = notif.extra || {};
 
-            // إذا كان أوفلاين → حمّل آخر بيانات
-            if (!window._wodOnline) {
-                _showOfflineBanner(true);
-                var offlineData = await this.loadOfflineData();
-                if (offlineData) {
-                    window._offlineWeatherData = offlineData;
-                    window.dispatchEvent(
-                        new CustomEvent('wodOfflineData', { detail: offlineData })
-                    );
-                }
+                    // إيقاظ من BackgroundRunner
+                    if (notif.id === BG_WAKEUP_ID && extra.wakeup) {
+                        _silentRefresh();
+                        return;
+                    }
+
+                    // نقر على إشعار تنبيه → فتح التطبيق في الصدارة
+                    if (typeof window.showMain === 'function') window.showMain();
+                });
             }
+        },
 
-            // أخبر باقي الكود أن الجسر جاهز
-            window.dispatchEvent(new Event('wodBridgeReady'));
-            return ready;
+        refreshWeather: async function () {
+            return await _silentRefresh();
         }
     };
 
-    /* ═══════════════════════════════════════════════════════
-       دوال مساعدة داخلية
-    ═══════════════════════════════════════════════════════ */
+    /* ════════════════════════════════════════════════════════════════════
+       تحديث صامت (يُستدعى عند إيقاظ BackgroundRunner)
+    ════════════════════════════════════════════════════════════════════ */
+    async function _silentRefresh() {
+        var city = window.currentCity || 'khartoum';
+        var loc  = window.allCities && window.allCities[city];
+        if (!loc) return;
 
-    function _applyDarkMode(isDark) {
-        if (isDark) {
-            document.body.classList.add('wod-dark');
-            // [FIX-2] اضبط على body وليس documentElement — CSS التطبيق يستخدم body[data-theme]
-            document.body.setAttribute('data-theme', 'dark');
-        } else {
-            document.body.classList.remove('wod-dark');
-            document.body.setAttribute('data-theme', 'light');
-        }
-        window.dispatchEvent(
-            new CustomEvent('wodDarkModeChange', { detail: { dark: isDark } })
-        );
-    }
+        try {
+            var url = 'https://api.open-meteo.com/v1/forecast'
+                + '?latitude='  + loc.lat
+                + '&longitude=' + loc.lon
+                + '&current=temperature_2m,weather_code,wind_speed_10m'
+                + '&wind_speed_unit=kmh'
+                + '&timezone=Africa%2FKhartoum';
 
-    function _searchLocalCities(query) {
-        var allCities = window.allCities;
-        if (!allCities) return [];
+            var res  = await fetch(url, {
+                signal: (typeof makeTimeout === 'function') ? makeTimeout(10000) : undefined
+            });
+            var data = await res.json();
+            var cur  = data.current || {};
+            var temp = cur.temperature_2m;
+            var code = cur.weather_code || 0;
+            var wind = cur.wind_speed_10m || 0;
 
-        var q = query.trim();
-        // نمط: حروف عربية/لاتينية + رقم اختياري
-        var results = [];
-        var entries = Object.entries(allCities);
+            // تحديث الإشعار الدائم
+            var desc = _wxDesc(code);
+            await WodNotif.updateSticky(temp, desc, loc.name);
 
-        for (var i = 0; i < entries.length; i++) {
-            var key  = entries[i][0];
-            var city = entries[i][1];
-            var name = city.name || '';
-
-            if (
-                name.includes(q) ||
-                key.toLowerCase().includes(q.toLowerCase())
-            ) {
-                results.push({
-                    key:    key,
-                    name:   name,
-                    lat:    city.lat,
-                    lon:    city.lon,
-                    elev:   city.elev   || 0,
-                    region: city.region || '',
-                    source: 'local'
-                });
+            // تنبيه إذا كانت الأحوال خطيرة
+            if (_isAlertCondition(code, temp, wind)) {
+                var eventKey = _alertKey(code, temp, wind, loc.name);
+                await WodNotif.sendAlert(
+                    eventKey,
+                    _alertTitle(code, temp, wind),
+                    _alertBody(code, temp, wind, loc.name)
+                );
             }
+
+            // أبلغ التطبيق بوجود بيانات جديدة
+            window.dispatchEvent(new CustomEvent('wodBgRefresh', {
+                detail: { temp: temp, desc: desc, city: loc.name, code: code, wind: wind }
+            }));
+
+            // إذا كان التطبيق مفتوحاً، حدّث الواجهة
+            if (typeof window.loadWeather === 'function') {
+                window.loadWeather(city, true);
+            }
+
+        } catch (_) {
+            // الشبكة غير متاحة — لا شيء
         }
-        return results;
     }
 
+    // ── دوال تصنيف الطقس ────────────────────────────────────────────────
+
+    function _wxDesc(code) {
+        if (code === 0)               return 'صحو';
+        if (code <= 3)                return 'غيوم جزئية';
+        if (code <= 49)               return 'ضباب';
+        if (code <= 67)               return 'أمطار';
+        if (code <= 77)               return 'ثلج';
+        if (code <= 82)               return 'زخات مطر';
+        if (code >= 95 && code <= 99) return 'عواصف رعدية';
+        return 'متغير';
+    }
+
+    function _isAlertCondition(code, temp, wind) {
+        return code >= 95 || temp > 45 || wind > 50;
+    }
+
+    function _alertKey(code, temp, wind, city) {
+        // مفتاح حتمي يمنع تكرار نفس الحدث
+        var type = code >= 95 ? 'storm' : temp > 45 ? 'heat' : 'wind';
+        return type + '-' + (city || '').replace(/\s/g, '') + '-' + new Date().toDateString();
+    }
+
+    function _alertTitle(code, temp, wind) {
+        if (code >= 95) return '⚡ تحذير: عواصف رعدية';
+        if (temp > 45)  return '🌡 تحذير: موجة حر شديدة';
+        if (wind > 50)  return '💨 تحذير: رياح شديدة / هبوب';
+        return '⚠ تنبيه طقس';
+    }
+
+    function _alertBody(code, temp, wind, city) {
+        if (code >= 95) return city + ': عواصف رعدية. ابتعد عن الأماكن المكشوفة.';
+        if (temp > 45)  return city + ': درجة الحرارة ' + Math.round(temp) + '°م. تجنّب الشمس المباشرة.';
+        if (wind > 50)  return city + ': رياح ' + Math.round(wind) + ' كم/س. هبوب محتمل.';
+        return city + ': تنبيه طقس. افتح التطبيق للتفاصيل.';
+    }
+
+    /* ════════════════════════════════════════════════════════════════════
+       قنوات الإشعارات
+    ════════════════════════════════════════════════════════════════════ */
+    async function _ensureChannels() {
+        var LN = _P('LocalNotifications');
+        if (!LN || !LN.createChannel) return;
+
+        var channels = [
+            {
+                id:          CH_ALERTS,
+                name:        'تنبيهات الطقس الخطيرة',
+                description: 'هبوب وعواصف ترابية وتنبيهات جوية حرجة',
+                importance:  5,
+                vibration:   true,
+                sound:       'default',
+                lights:      true,
+                lightColor:  '#f59e0b',
+                visibility:  1
+            },
+            {
+                id:          CH_PERSISTENT,
+                name:        'حالة الطقس الحالية',
+                description: 'درجة الحرارة الحالية في الشريط',
+                importance:  2,
+                vibration:   false,
+                sound:       null,
+                visibility:  1
+            },
+            {
+                id:          CH_DAILY,
+                name:        'تنبيهات الطقس اليومية',
+                description: 'ملخص الطقس اليومي',
+                importance:  3,
+                vibration:   true,
+                sound:       'default',
+                visibility:  1
+            }
+        ];
+
+        for (var ch of channels) {
+            try { await LN.createChannel(ch); } catch (_) {}
+        }
+    }
+
+    /* ════════════════════════════════════════════════════════════════════
+       GPS في المتصفح (fallback عند عدم توفر Capacitor)
+    ════════════════════════════════════════════════════════════════════ */
     function _browserGeolocation() {
         return new Promise(function (resolve, reject) {
             if (!navigator.geolocation) {
-                reject(new Error('الجهاز لا يدعم GPS'));
+                reject(new Error('GPS غير مدعوم'));
                 return;
             }
             navigator.geolocation.getCurrentPosition(
@@ -498,265 +629,174 @@
                     resolve({
                         lat:     pos.coords.latitude,
                         lon:     pos.coords.longitude,
-                        accuracy: pos.coords.accuracy,
                         name:    'موقعك الحالي',
-                        fromBrowser: true
+                        fromGps: true
                     });
                 },
-                function (e) { reject(new Error('GPS: ' + e.message)); },
-                { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+                function (err) { reject(err); },
+                { enableHighAccuracy: true, timeout: 10000 }
             );
         });
     }
 
-    /* ═══════════════════════════════════════════════════════
-       شريط البحث + زر GPS — حقن واجهة المستخدم تلقائياً
-    ═══════════════════════════════════════════════════════ */
-
-    /* ═══════════════════════════════════════════════════════
-       [FIX-5] ربط الجسر بشريط البحث الموجود في التطبيق
-       يُستدعى عندما يكتشف الجسر وجود #citySelector
-       يربط زر GPS الموجود (#cityGpsBtn) بـ WodBridge.getLocation()
-    ═══════════════════════════════════════════════════════ */
-    function _bindExistingSearchBar() {
-        // زر GPS الموجود في التطبيق
-        var existingGpsBtn = document.getElementById('cityGpsBtn');
-        if (existingGpsBtn && !existingGpsBtn.dataset.wodBound) {
-            existingGpsBtn.dataset.wodBound = '1';
-
-            existingGpsBtn.addEventListener('click', async function (e) {
-                // أوقف السلوك الافتراضي فقط إذا كنا في البيئة الأصلية
-                if (!_isNative()) return; // في المتصفح: اترك السلوك الأصلي
-
-                e.stopImmediatePropagation(); // امنع المستمع الآخر من التنفيذ المزدوج
-
-                existingGpsBtn.classList.add('gps-loading');
-                try {
-                    var loc = await WodBridge.getLocation();
-                    existingGpsBtn.classList.remove('gps-loading');
-
-                    // حدّث شارة المدينة الموجودة
-                    var badge = document.getElementById('cityCurBadge');
-                    if (badge) {
-                        badge.textContent = loc.name || 'موقعك';
-                        badge.style.display = 'block';
-                    }
-
-                    await _loadWeatherByCoords(loc.lat, loc.lon, loc.name || 'موقعك الحالي');
-
-                    if (typeof window.showToast === 'function') {
-                        window.showToast(loc.fromCache ? 'آخر موقع محفوظ' : 'تم تحديد موقعك ✓', 'success');
-                    }
-                } catch (e) {
-                    existingGpsBtn.classList.remove('gps-loading');
-                    if (typeof window.showToast === 'function') {
-                        window.showToast('تعذّر الموقع — تحقق من إذن GPS', 'error');
-                    }
-                }
-            });
-        }
+    /* ════════════════════════════════════════════════════════════════════
+       بحث المدن المحلية (قاموس allCities)
+    ════════════════════════════════════════════════════════════════════ */
+    function _searchLocalCities(q) {
+        if (!window.allCities) return [];
+        q = q.trim().toLowerCase();
+        return Object.entries(window.allCities)
+            .filter(function (pair) {
+                var k = pair[0], c = pair[1];
+                return c.name.includes(q) || k.toLowerCase().includes(q);
+            })
+            .map(function (pair) {
+                return {
+                    key:    pair[0],
+                    name:   pair[1].name,
+                    lat:    pair[1].lat,
+                    lon:    pair[1].lon,
+                    region: pair[1].region || '',
+                    elev:   pair[1].elev   || 0
+                };
+            })
+            .slice(0, 6);
     }
 
+    /* ════════════════════════════════════════════════════════════════════
+       شريط البحث + GPS (مُحقَن في الواجهة)
+    ════════════════════════════════════════════════════════════════════ */
     function _injectSearchBar() {
-        if (document.getElementById('wodCitySelector')) return; // حُقن مسبقاً
+        // لا تُحقن إذا كان شريط البحث الأصلي موجوداً
+        if (document.getElementById('citySearchInput')) return;
+        if (document.getElementById('wodSearchBar'))    return;
 
-        // ══════════════════════════════════════════════════════
-        // [FIX-1] إذا كان التطبيق لديه شريط بحث خاص به (#citySelector)
-        // لا نحقن شريطاً ثانياً — فقط نربط أحداث GPS والبحث بالعناصر الموجودة
-        // ══════════════════════════════════════════════════════
-        if (document.getElementById('citySelector')) {
-            _bindExistingSearchBar();
-            return;
-        }
-
-        /* ── CSS ── */
         var css = [
-            '#wodCitySelector{',
-            '  position:relative;display:flex;align-items:center;gap:8px;',
-            '  padding:8px 12px 8px 12px;',
-            '  background:rgba(255,255,255,0.04);',
-            '  border-bottom:1px solid rgba(255,255,255,0.07);',
-            '  direction:rtl;z-index:200;',
-            '}',
-            '#wodSearchWrapper{flex:1;position:relative;}',
-            '#wodSearchBar{',
-            '  width:100%;box-sizing:border-box;',
-            '  background:rgba(255,255,255,0.07);',
-            '  border:1.5px solid rgba(245,158,11,.3);',
-            '  border-radius:14px;padding:10px 14px;',
-            '  color:#f1f5f9;font-size:.9rem;',
-            "  font-family:'Cairo','DM Sans',sans-serif;",
-            '  outline:none;direction:rtl;',
-            '  transition:border-color .2s;',
-            '}',
+            '#wodSearchWrap{display:flex;align-items:center;gap:8px;padding:10px 15px;',
+            'background:var(--bg-secondary,#1c1c1c);border-bottom:1px solid rgba(255,255,255,.1);}',
+            '#wodSearchBar{flex:1;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);',
+            'border-radius:12px;padding:10px 14px;color:#f1f5f9;font-size:.9rem;',
+            "font-family:'Cairo','DM Sans',sans-serif;outline:none;direction:rtl;}",
             '#wodSearchBar:focus{border-color:#f59e0b;}',
-            "#wodSearchBar::placeholder{color:rgba(241,245,249,.38);font-family:'Cairo',sans-serif;}",
-            '#wodGpsBtn{',
-            '  background:rgba(245,158,11,.13);',
-            '  border:1.5px solid rgba(245,158,11,.45);',
-            '  border-radius:14px;padding:10px 13px;',
-            '  color:#f59e0b;font-size:1.15rem;cursor:pointer;',
-            '  transition:all .2s;min-width:46px;display:flex;',
-            '  align-items:center;justify-content:center;',
-            '  user-select:none;-webkit-user-select:none;',
-            '}',
-            '#wodGpsBtn:active{background:rgba(245,158,11,.28);transform:scale(.94);}',
-            '#wodGpsBtn.loading{animation:wodGpsSpin .9s linear infinite;}',
-            '@keyframes wodGpsSpin{to{transform:rotate(360deg)}}',
-            '#wodSearchResults{',
-            '  position:absolute;top:calc(100% + 4px);right:0;left:0;',
-            '  background:#161d2c;',
-            '  border:1.5px solid rgba(245,158,11,.3);',
-            '  border-radius:14px;overflow:hidden;',
-            '  box-shadow:0 10px 40px rgba(0,0,0,.7);',
-            '  z-index:9999;max-height:250px;overflow-y:auto;',
-            '  display:none;',
-            '}',
+            '#wodGpsBtn{background:rgba(245,158,11,.12);border:1.5px solid rgba(245,158,11,.35);',
+            'border-radius:12px;width:42px;height:42px;display:flex;align-items:center;',
+            'justify-content:center;cursor:pointer;font-size:1.1rem;transition:background .2s;}',
+            '#wodGpsBtn:active{background:rgba(245,158,11,.3);}',
+            '#wodSearchResults{position:absolute;right:0;left:0;top:calc(100% + 4px);',
+            'background:var(--bg-card,#2a2a2a);border:1.5px solid rgba(255,255,255,.12);',
+            'border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.7);',
+            'z-index:9999;max-height:240px;overflow-y:auto;display:none;scrollbar-width:none;}',
             '#wodSearchResults.open{display:block;}',
-            '.wod-sri{',
-            '  padding:12px 16px;color:#e2e8f0;cursor:pointer;',
-            '  display:flex;align-items:center;gap:10px;',
-            "  font-family:'Cairo',sans-serif;font-size:.88rem;",
-            '  border-bottom:1px solid rgba(255,255,255,.05);',
-            '  transition:background .15s;direction:rtl;',
-            '}',
+            '.wod-sri{display:flex;align-items:center;gap:10px;padding:12px 16px;',
+            'cursor:pointer;border-bottom:1px solid rgba(255,255,255,.06);direction:rtl;',
+            'font-family:Cairo,sans-serif;font-size:.9rem;transition:background .15s;}',
             '.wod-sri:last-child{border-bottom:none;}',
-            '.wod-sri:active{background:rgba(245,158,11,.13);}',
-            '.wod-sri .wod-reg{font-size:.74rem;color:rgba(241,245,249,.45);margin-right:auto;}',
-            '#wodCityBadge{',
-            '  font-size:.78rem;color:rgba(245,158,11,.9);',
-            "  font-family:'Cairo',sans-serif;padding:3px 9px;",
-            '  background:rgba(245,158,11,.1);border-radius:10px;',
-            '  white-space:nowrap;display:none;max-width:90px;',
-            '  overflow:hidden;text-overflow:ellipsis;',
-            '}'
-        ].join('\n');
+            '.wod-sri:hover{background:rgba(245,158,11,.1);}',
+            '.wod-reg{font-size:.74rem;color:rgba(241,245,249,.45);margin-right:auto;}',
+            '#wodCityBadge{font-size:.75rem;color:#f59e0b;font-family:Cairo,sans-serif;',
+            'pointer-events:none;white-space:nowrap;max-width:80px;',
+            'overflow:hidden;text-overflow:ellipsis;display:none;}'
+        ].join('');
 
         var style = document.createElement('style');
-        style.id = 'wodSearchStyle';
         style.textContent = css;
         document.head.appendChild(style);
 
-        /* ── HTML ── */
-        var html = [
-            '<div id="wodCitySelector">',
-            '  <button id="wodGpsBtn" title="موقعي الحالي">📍</button>',
-            '  <div id="wodSearchWrapper">',
-            '    <input id="wodSearchBar" type="search"',
-            '           placeholder="ابحث عن مدينة... الخرطوم، نيالا..."',
-            '           autocomplete="off" inputmode="search" />',
-            '    <div id="wodSearchResults"></div>',
-            '  </div>',
-            '  <span id="wodCityBadge"></span>',
-            '</div>'
-        ].join('\n');
+        var wrap = document.createElement('div');
+        wrap.id = 'wodSearchWrap';
+        wrap.style.position = 'relative';
 
-        /* إيجاد أفضل موضع للحقن */
-        var anchor = (
-            document.querySelector('.header, header, .top-bar, #header, #topBar') ||
-            document.querySelector('.app-container, #app, .main-container') ||
-            document.body
-        );
+        var gpsBtn = document.createElement('button');
+        gpsBtn.id = 'wodGpsBtn';
+        gpsBtn.textContent = '📍';
+        gpsBtn.setAttribute('aria-label', 'تحديد موقعي');
 
-        if (anchor === document.body) {
-            anchor.insertAdjacentHTML('afterbegin', html);
-        } else if (anchor.parentNode === document.body) {
-            anchor.insertAdjacentHTML('beforebegin', html);
+        var badge = document.createElement('span');
+        badge.id = 'wodCityBadge';
+
+        var searchWrapper = document.createElement('div');
+        searchWrapper.style.cssText = 'position:relative;flex:1;';
+
+        var searchBar = document.createElement('input');
+        searchBar.id          = 'wodSearchBar';
+        searchBar.type        = 'search';
+        searchBar.placeholder = '🏙 ابحث عن مدينتك...';
+        searchBar.autocomplete = 'off';
+        searchBar.setAttribute('inputmode', 'search');
+
+        var results = document.createElement('div');
+        results.id = 'wodSearchResults';
+
+        searchWrapper.appendChild(searchBar);
+        searchWrapper.appendChild(badge);
+        searchWrapper.appendChild(results);
+
+        wrap.appendChild(gpsBtn);
+        wrap.appendChild(searchWrapper);
+
+        var header = document.querySelector('.header, .city-selector, #mainHeader');
+        if (header && header.parentNode) {
+            header.parentNode.insertBefore(wrap, header.nextSibling);
         } else {
-            document.body.insertAdjacentHTML('afterbegin', html);
+            var first = document.body.firstChild;
+            document.body.insertBefore(wrap, first);
         }
 
-        _bindSearchEvents();
+        _bindSearchBar(searchBar, results, gpsBtn, badge);
     }
 
-    /* ── ربط أحداث شريط البحث ── */
-    function _bindSearchEvents() {
-        var searchBar = document.getElementById('wodSearchBar');
-        var gpsBtn    = document.getElementById('wodGpsBtn');
-        var results   = document.getElementById('wodSearchResults');
-        var badge     = document.getElementById('wodCityBadge');
+    function _bindSearchBar(inp, results, gpsBtn, badge) {
+        var debounce = null;
 
-        if (!searchBar || !gpsBtn) return;
-
-        var debounceTimer = null;
-
-        /* البحث النصي */
-        searchBar.addEventListener('input', function () {
-            clearTimeout(debounceTimer);
-            var q = this.value.trim();
-            if (q.length < 2) {
-                results.innerHTML = '';
-                results.classList.remove('open');
-                return;
-            }
-            debounceTimer = setTimeout(async function () {
-                var found = await WodBridge.searchCity(q);
-                _renderSearchResults(found, results);
-            }, 280);
+        inp.addEventListener('input', function () {
+            clearTimeout(debounce);
+            var q = inp.value.trim();
+            if (!q) { results.classList.remove('open'); return; }
+            debounce = setTimeout(async function () {
+                var cities = await WodBridge.searchCity(q);
+                _renderResults(cities, results);
+            }, 250);
         });
 
-        searchBar.addEventListener('blur', function () {
-            setTimeout(function () {
-                results.classList.remove('open');
-            }, 220);
+        inp.addEventListener('blur', function () {
+            setTimeout(function () { results.classList.remove('open'); }, 200);
         });
 
-        /* زر GPS */
         gpsBtn.addEventListener('click', async function () {
             gpsBtn.textContent = '⏳';
-            gpsBtn.disabled = true;
-            gpsBtn.classList.add('loading');
-
+            gpsBtn.disabled    = true;
             try {
-                if (typeof window.showToast === 'function') {
-                    window.showToast('جاري تحديد موقعك...', 'info');
-                }
                 var loc = await WodBridge.getLocation();
-
-                gpsBtn.textContent = '📍';
-                gpsBtn.disabled = false;
-                gpsBtn.classList.remove('loading');
-
-                _setCityBadge(badge, loc.name || 'موقعك');
-                await _loadWeatherByCoords(loc.lat, loc.lon, loc.name || 'موقعك الحالي');
-
+                _setCityBadge(badge, loc.name);
+                await _loadWeatherByCoords(loc.lat, loc.lon, loc.name);
                 if (typeof window.showToast === 'function') {
-                    if (loc.fromCache) {
-                        window.showToast('تم استخدام آخر موقع محفوظ', 'warn');
-                    } else {
-                        window.showToast('تم تحديد موقعك ✓', 'success');
-                    }
+                    window.showToast(loc.fromCache ? 'آخر موقع محفوظ' : 'تم تحديد موقعك ✓',
+                                     loc.fromCache ? 'warn' : 'success');
                 }
-            } catch (e) {
-                gpsBtn.textContent = '📍';
-                gpsBtn.disabled = false;
-                gpsBtn.classList.remove('loading');
+            } catch (_) {
                 if (typeof window.showToast === 'function') {
                     window.showToast('تعذّر الموقع — تحقق من إذن GPS', 'error');
                 }
             }
+            gpsBtn.textContent = '📍';
+            gpsBtn.disabled    = false;
         });
     }
 
-    function _setCityBadge(badge, name) {
-        if (!badge) return;
-        badge.textContent = name;
-        badge.style.display = 'block';
-        // اخفِ بعد 5 ثوانٍ وأبقِه صغيراً
-        setTimeout(function () {
-            badge.style.opacity = '.7';
-        }, 5000);
-    }
-
-    function _renderSearchResults(cities, container) {
-        if (!cities || cities.length === 0) {
-            container.innerHTML = '<div class="wod-sri" style="color:rgba(241,245,249,.4);justify-content:center;cursor:default;">لا توجد نتائج</div>';
+    function _renderResults(cities, container) {
+        container.innerHTML = '';
+        if (!cities || !cities.length) {
+            var empty = document.createElement('div');
+            empty.className = 'wod-sri';
+            empty.style.color = 'rgba(241,245,249,.4)';
+            empty.style.justifyContent = 'center';
+            empty.style.cursor = 'default';
+            empty.textContent = 'لا توجد نتائج';
+            container.appendChild(empty);
             container.classList.add('open');
             return;
         }
 
-        // [FIX-7] بناء العناصر برمجياً بدلاً من innerHTML لتجنب XSS
-        container.innerHTML = '';
         cities.slice(0, 7).forEach(function (city) {
             var item = document.createElement('div');
             item.className = 'wod-sri';
@@ -764,11 +804,11 @@
             var icon = document.createElement('span');
             icon.textContent = '🏙';
 
-            var nameSpan = document.createElement('span');
-            nameSpan.textContent = city.name || '';
+            var nameEl = document.createElement('span');
+            nameEl.textContent = city.name || '';
 
             item.appendChild(icon);
-            item.appendChild(nameSpan);
+            item.appendChild(nameEl);
 
             if (city.region) {
                 var reg = document.createElement('span');
@@ -788,48 +828,36 @@
         container.classList.add('open');
     }
 
-    /* اختيار مدينة من نتائج البحث */
     window.WodBridge._pick = async function (lat, lon, name, key) {
-        var results = document.getElementById('wodSearchResults');
+        var results   = document.getElementById('wodSearchResults');
         var searchBar = document.getElementById('wodSearchBar');
-        var badge = document.getElementById('wodCityBadge');
+        var badge     = document.getElementById('wodCityBadge')
+                     || document.getElementById('cityCurBadge');
+
         if (results)   results.classList.remove('open');
         if (searchBar) searchBar.value = name;
         _setCityBadge(badge, name);
         await _loadWeatherByCoords(lat, lon, name, key);
     };
 
-    /* تحميل الطقس بالإحداثيات */
     async function _loadWeatherByCoords(lat, lon, name, key) {
         window._currentCityCoords = { lat: lat, lon: lon, name: name, key: key };
 
-        /* ── الحالة 1: مدينة معروفة في القاموس ── */
         if (key && window.allCities && window.allCities[key]) {
             window.currentCity = key;
-            // [FIX-4] استخدم selectCityFromDropdown إذا كانت موجودة (التطبيق الحالي)
             if (typeof selectCityFromDropdown === 'function') {
-                selectCityFromDropdown(key);
-                return;
+                selectCityFromDropdown(key); return;
             }
             if (typeof changeCity === 'function') {
-                changeCity(key);
-                return;
+                changeCity(key); return;
             }
         }
 
-        /* ── الحالة 2: إحداثيات GPS أو مدينة خارجية ── */
         if (window.allCities) {
-            window.allCities['gps'] = {
-                name:   name || 'موقعك الحالي',
-                lat:    lat,
-                lon:    lon,
-                elev:   0,
-                region: 'GPS'
-            };
+            window.allCities['gps'] = { name: name || 'موقعك', lat: lat, lon: lon, elev: 0, region: 'GPS' };
         }
         window.currentCity = 'gps';
 
-        // جرّب دوال التطبيق المتاحة بالترتيب
         if (typeof fetchWeatherByCoords === 'function') {
             fetchWeatherByCoords(lat, lon, name);
         } else if (typeof changeCity === 'function') {
@@ -841,12 +869,15 @@
         }
     }
 
-    /* ═══════════════════════════════════════════════════════
-       لافتة الأوفلاين
-    ═══════════════════════════════════════════════════════ */
+    function _setCityBadge(badge, name) {
+        if (!badge) return;
+        badge.textContent = name;
+        badge.style.display = 'block';
+        setTimeout(function () { badge.style.opacity = '.7'; }, 5000);
+    }
+
     function _showOfflineBanner(show) {
         var banner = document.getElementById('wodOfflineBanner');
-
         if (show) {
             if (!banner) {
                 banner = document.createElement('div');
@@ -854,8 +885,7 @@
                 banner.style.cssText = [
                     'position:fixed;bottom:72px;left:50%;',
                     'transform:translateX(-50%);',
-                    'background:#1e293b;',
-                    'border:1.5px solid #475569;',
+                    'background:#1e293b;border:1.5px solid #475569;',
                     'border-radius:20px;padding:8px 18px;',
                     'color:#94a3b8;font-size:.82rem;',
                     "font-family:'Cairo',sans-serif;",
@@ -864,7 +894,7 @@
                     'box-shadow:0 4px 24px rgba(0,0,0,.6);',
                     'white-space:nowrap;direction:rtl;'
                 ].join('');
-                banner.innerHTML = '📵 وضع الأوفلاين — آخر بيانات محفوظة';
+                banner.textContent = '📵 وضع الأوفلاين — آخر بيانات محفوظة';
                 document.body.appendChild(banner);
             }
             banner.style.display = 'flex';
@@ -873,56 +903,37 @@
         }
     }
 
-    /* ═══════════════════════════════════════════════════════
-       مستمع: تحديث الطقس → تحديث الإشعار الدائم + حفظ أوفلاين
-    ═══════════════════════════════════════════════════════ */
+    // ── مستمعات الأحداث ──────────────────────────────────────────────────
+
     window.addEventListener('wodWeatherUpdated', async function (e) {
         var d = e.detail || {};
         if (d.temp !== undefined) {
             await WodBridge.updateStickyNotif(d.temp, d.desc, d.city);
         }
         if (d.fullData) {
-            var cityKey = window.currentCity || 'gps';
-            await WodBridge.saveOfflineData(cityKey, d.fullData);
+            await WodBridge.saveOfflineData(window.currentCity || 'gps', d.fullData);
         }
     });
 
-    /* ═══════════════════════════════════════════════════════
-       مستمع: تغيير الشبكة
-    ═══════════════════════════════════════════════════════ */
     window.addEventListener('wodNetworkChange', function (e) {
         _showOfflineBanner(!e.detail.connected);
     });
 
-    /* ═══════════════════════════════════════════════════════
-       تشغيل عند تحميل DOM
-    ═══════════════════════════════════════════════════════ */
+    // ── تهيئة عند تحميل DOM ──────────────────────────────────────────────
+
     document.addEventListener('DOMContentLoaded', async function () {
-
-        // حقن شريط البحث + GPS
         _injectSearchBar();
-
-        // تهيئة الجسر
         await WodBridge.init();
 
-        /* إذا لم يختر المستخدم مدينة بعد → جرّب آخر موقع محفوظ */
         if (window._wodOnline !== false && _isNative()) {
-            var Pref = _P('Preferences');
-            if (Pref) {
-                try {
-                    var savedLoc = await Pref.get({ key: 'lastKnownLocation' });
-                    if (savedLoc && savedLoc.value) {
-                        var loc = JSON.parse(savedLoc.value);
-                        /* استخدمه بصمت بدون طلب GPS جديد */
-                        await _loadWeatherByCoords(loc.lat, loc.lon, loc.name || 'موقعك السابق');
-                        // [FIX-6] استخدم الشارة الموجودة في التطبيق (#cityCurBadge) إذا كانت متاحة
-                        var badge = document.getElementById('cityCurBadge')
-                                 || document.getElementById('wodCityBadge');
-                        _setCityBadge(badge, loc.name || 'موقعك');
-                    }
-                } catch (_) {}
+            var cached = await _Pref.getJSON('lastKnownLocation', null);
+            if (cached) {
+                await _loadWeatherByCoords(cached.lat, cached.lon, cached.name || 'موقعك السابق');
+                var badge = document.getElementById('cityCurBadge')
+                         || document.getElementById('wodCityBadge');
+                _setCityBadge(badge, cached.name || 'موقعك');
             }
         }
     });
 
-})(); /* نهاية IIFE */
+})();
