@@ -14,9 +14,8 @@ import android.os.Build;
  * ينشئ قنوات الإشعارات المطلوبة عند أول تشغيل للتطبيق.
  *
  * القنوات:
- *   1. weather_alerts      — تنبيهات الطقس الحرجة (أولوية قصوى)
- *   2. weather_persistent  — الإشعار الدائم بدرجة الحرارة (أولوية منخفضة)
- *   3. weather_daily       — تنبيهات الطقس اليومية
+ *   1. weather_alerts      — تنبيهات الطقس الحرجة (أولوية قصوى + صوت)
+ *   2. weather_daily       — تنبيهات الطقس اليومية (صوت)
  */
 public class NotificationChannelHelper {
 
@@ -38,11 +37,14 @@ public class NotificationChannelHelper {
             channel.enableLights(true);
             channel.setLightColor(Color.parseColor("#f59e0b"));
             channel.enableVibration(true);
-            channel.setVibrationPattern(new long[]{0, 300, 200, 300, 200, 600});
+            channel.setVibrationPattern(new long[]{0, 500, 300, 500, 300, 800});
             channel.setShowBadge(true);
             channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+            
+            // ✅ تجاوز وضع عدم الإزعاج (Do Not Disturb)
+            channel.setBypassDnd(true);
 
-            // استخدام صوت الهاتف الافتراضي
+            // ✅ استخدام صوت الهاتف الافتراضي
             Uri defaultSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
             AudioAttributes audioAttributes = new AudioAttributes.Builder()
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -53,24 +55,7 @@ public class NotificationChannelHelper {
             nm.createNotificationChannel(channel);
         }
 
-        // ── 2. قناة الإشعار الدائم (درجة الحرارة في شريط التنبيهات) ─
-        {
-            NotificationChannel channel = new NotificationChannel(
-                    "weather_persistent",
-                    "حالة الطقس الحالية",
-                    NotificationManager.IMPORTANCE_LOW  // بدون صوت ولا اهتزاز
-            );
-            channel.setDescription("يعرض درجة الحرارة الحالية في شريط التنبيهات باستمرار");
-            channel.enableLights(false);
-            channel.enableVibration(false);
-            channel.setSound(null, null);
-            channel.setShowBadge(false);
-            channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
-
-            nm.createNotificationChannel(channel);
-        }
-
-        // ── 3. قناة التنبيهات اليومية ────────────────────────────────
+        // ── 2. قناة التنبيهات اليومية ────────────────────────────────
         {
             NotificationChannel channel = new NotificationChannel(
                     "weather_daily",
@@ -81,9 +66,11 @@ public class NotificationChannelHelper {
             channel.enableLights(true);
             channel.setLightColor(Color.parseColor("#3b82f6"));
             channel.enableVibration(true);
-            channel.setVibrationPattern(new long[]{0, 200, 100, 200});
+            channel.setVibrationPattern(new long[]{0, 300, 150, 300});
             channel.setShowBadge(true);
+            channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
 
+            // ✅ استخدام صوت الهاتف الافتراضي
             Uri defaultSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
             AudioAttributes audioAttributes = new AudioAttributes.Builder()
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
