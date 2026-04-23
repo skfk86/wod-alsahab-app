@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- أذونات الشبكة -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- أذونات الموقع -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-
-    <!-- أذونات الإشعارات -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
@@ -25,7 +20,6 @@
         android:hardwareAccelerated="true"
         android:largeHeap="true">
 
-        <!-- قناة الإشعارات -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="weather_alerts" />
@@ -50,7 +44,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Local Notifications -->
         <receiver
             android:name="com.capacitorjs.plugins.localnotifications.LocalNotificationRestoreReceiver"
             android:exported="false">
