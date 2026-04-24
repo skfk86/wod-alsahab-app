@@ -7,7 +7,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="طقس السودان">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Permissions-Policy" content="geolocation=(self), camera=(), microphone=(), payment=()">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://api.open-meteo.com" crossorigin>
+    <link rel="preconnect" href="https://api.groq.com" crossorigin>
+    <link rel="preconnect" href="https://generativelanguage.googleapis.com" crossorigin>
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <meta name="description" content="تطبيق طقس السودان - أدق توقعات الطقس للمدن السودانية">
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' https:;
+        script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.gstatic.com https://cdn.jsdelivr.net;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net;
+        font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com;
+        img-src 'self' data: https:;
+        connect-src 'self' https://api.open-meteo.com https://air-quality-api.open-meteo.com https://api.groq.com https://generativelanguage.googleapis.com https://*.firebaseio.com https://*.googleapis.com https://www.google.com https://oxapay.com https://api.oxapay.com;
+        frame-src 'none';
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+        frame-ancestors 'none';
+        upgrade-insecure-requests;
+        worker-src 'self' blob:;
+        manifest-src 'self';
+    ">
     <title>طقس السودان | Sudan Weather</title>
 
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
@@ -152,229 +189,262 @@
             contain: strict;
         }
 
+        /* ══════════ ONBOARDING — REDESIGN ══════════ */
         .onboarding-container {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--bg-primary);
+            top: 0; left: 0; width: 100%; height: 100%;
             z-index: 20000;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            background: #070d1a;
+        }
+        .onboarding-container.hidden { display: none; }
+        .hidden { display: none !important; }
+
+        /* خلفية متحركة */
+        .ob-bg {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+        .ob-glow {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.18;
+            animation: obGlowDrift 8s ease-in-out infinite alternate;
+        }
+        .ob-glow-1 { width:340px;height:340px; background:#f59e0b; top:-80px; right:-60px; animation-delay:0s; }
+        .ob-glow-2 { width:280px;height:280px; background:#3b82f6; bottom:-60px; left:-40px; animation-delay:-3s; }
+        .ob-glow-3 { width:200px;height:200px; background:#8b5cf6; top:40%; right:10%; animation-delay:-5s; }
+        @keyframes obGlowDrift {
+            0%   { transform: translate(0,0) scale(1); }
+            100% { transform: translate(20px,30px) scale(1.12); }
+        }
+        /* شبكة نقاط خفية */
+        .ob-dots-grid {
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(circle, rgba(255,255,255,.06) 1px, transparent 1px);
+            background-size: 28px 28px;
         }
 
-        .onboarding-container.hidden {
-            display: none;
+        /* شريط التقدم العلوي */
+        .ob-progress-bar {
+            position: relative;
+            z-index: 2;
+            padding: 18px 28px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
+        .ob-logo {
+            font-size: 1rem;
+            font-weight: 800;
+            color: #f59e0b;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            letter-spacing: -0.3px;
+        }
+        .ob-logo i { font-size: 1.1rem; }
+        .ob-steps {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        .ob-step {
+            height: 4px;
+            border-radius: 4px;
+            background: rgba(255,255,255,.15);
+            transition: all 0.45s cubic-bezier(.34,1.56,.64,1);
+        }
+        .ob-step.done  { background: #f59e0b; width: 20px; }
+        .ob-step.active { background: #fbbf24; width: 32px; }
+        .ob-step.pending { width: 8px; }
 
+        /* السلايدر */
         .swiper {
             width: 100%;
-            height: calc(100% - 100px);
+            flex: 1;
+            position: relative;
+            z-index: 1;
         }
-
         .swiper-slide {
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
+            justify-content: center;
             align-items: center;
-            padding: 40px 30px;
+            padding: 24px 30px 16px;
             text-align: center;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
         }
+        .swiper-slide::-webkit-scrollbar { width: 4px; }
+        .swiper-slide::-webkit-scrollbar-track { background: transparent; }
+        .swiper-slide::-webkit-scrollbar-thumb { background: rgba(245,158,11,.4); border-radius: 4px; }
 
-        .swiper-slide::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .swiper-slide::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .swiper-slide::-webkit-scrollbar-thumb {
-            background: var(--accent);
-            border-radius: 3px;
-        }
-
+        /* الأيقونة المحورية */
         .slide-icon {
-            width: 120px;
-            height: 120px;
+            width: 110px; height: 110px;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 25px;
-            font-size: 3rem;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 28px;
+            font-size: 2.8rem;
             position: relative;
             flex-shrink: 0;
-            animation: float 3s ease-in-out infinite;
+            animation: obFloat 4s ease-in-out infinite;
         }
-
+        @keyframes obFloat {
+            0%,100% { transform: translateY(0); }
+            50%      { transform: translateY(-10px); }
+        }
+        .slide-icon::after {
+            content: '';
+            position: absolute;
+            inset: -14px;
+            border-radius: 50%;
+            border: 1.5px solid;
+            border-color: inherit;
+            opacity: 0.25;
+            animation: obRingExpand 3s ease-out infinite;
+        }
         .slide-icon::before {
             content: '';
             position: absolute;
-            width: 100%;
-            height: 100%;
+            inset: -28px;
             border-radius: 50%;
-            background: inherit;
-            opacity: 0.3;
-            animation: pulse-ring 2s ease-out infinite;
-            z-index: -1;
+            border: 1px solid;
+            border-color: inherit;
+            opacity: 0.1;
+            animation: obRingExpand 3s ease-out infinite 0.6s;
         }
-
-        @keyframes pulse-ring {
-            0% { transform: scale(1); opacity: 0.5; }
-            100% { transform: scale(1.5); opacity: 0; }
+        @keyframes obRingExpand {
+            0%   { transform: scale(0.9); opacity: 0.35; }
+            100% { transform: scale(1.15); opacity: 0; }
         }
+        .slide-1 .slide-icon { background: linear-gradient(135deg,#f59e0b,#f97316); border-color:#f59e0b; box-shadow:0 0 40px rgba(245,158,11,.35); }
+        .slide-2 .slide-icon { background: linear-gradient(135deg,#3b82f6,#8b5cf6); border-color:#3b82f6; box-shadow:0 0 40px rgba(59,130,246,.35); }
+        .slide-3 .slide-icon { background: linear-gradient(135deg,#10b981,#06b6d4); border-color:#10b981; box-shadow:0 0 40px rgba(16,185,129,.35); }
+        .slide-4 .slide-icon { background: linear-gradient(135deg,#ec4899,#8b5cf6); border-color:#ec4899; box-shadow:0 0 40px rgba(236,72,153,.35); }
 
-        .slide-1 .slide-icon { background: var(--gradient-1); }
-        .slide-2 .slide-icon { background: var(--gradient-2); }
-        .slide-3 .slide-icon { background: var(--gradient-3); }
-        .slide-4 .slide-icon { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
-
+        /* النصوص */
         .slide-title {
-            font-size: 1.6rem;
+            font-size: 1.65rem;
             font-weight: 800;
-            font-family: 'Bricolage Grotesque', sans-serif;
-            margin-bottom: 15px;
-            background: linear-gradient(135deg, var(--text-primary), var(--accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-family: 'Bricolage Grotesque', 'Cairo', sans-serif;
+            margin-bottom: 12px;
+            color: #f8fafc;
+            line-height: 1.25;
             flex-shrink: 0;
         }
-
+        .slide-1 .slide-title { background: linear-gradient(135deg,#fbbf24,#fb923c); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .slide-2 .slide-title { background: linear-gradient(135deg,#60a5fa,#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .slide-3 .slide-title { background: linear-gradient(135deg,#34d399,#22d3ee); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .slide-4 .slide-title { background: linear-gradient(135deg,#f472b6,#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
         .slide-desc {
-            font-size: 1rem;
-            color: var(--text-secondary);
-            line-height: 1.8;
-            max-width: 300px;
-            margin-bottom: 25px;
+            font-size: .97rem;
+            color: rgba(203,213,225,.85);
+            line-height: 1.75;
+            max-width: 290px;
+            margin-bottom: 22px;
             flex-shrink: 0;
         }
 
+        /* قائمة الخيارات */
         .slide-options {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            width: 100%;
-            max-width: 320px;
-            max-height: 400px;
-            overflow-y: auto;
-            padding-right: 5px;
-            -webkit-overflow-scrolling: touch;
+            display: flex; flex-direction: column; gap: 9px;
+            width: 100%; max-width: 320px;
+            max-height: 260px; overflow-y: auto;
+            padding-left: 2px; -webkit-overflow-scrolling: touch;
         }
-
-        .slide-options::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .slide-options::-webkit-scrollbar-track {
-            background: var(--bg-secondary);
-            border-radius: 2px;
-        }
-
-        .slide-options::-webkit-scrollbar-thumb {
-            background: var(--accent);
-            border-radius: 2px;
-        }
-
+        .slide-options::-webkit-scrollbar { width: 3px; }
+        .slide-options::-webkit-scrollbar-thumb { background: rgba(245,158,11,.35); border-radius: 3px; }
         .slide-option {
-            padding: 15px 18px;
-            background: var(--bg-card);
-            border: 2px solid var(--border-color);
+            padding: 14px 16px;
+            background: rgba(255,255,255,.05);
+            border: 1.5px solid rgba(255,255,255,.1);
             border-radius: 14px;
             cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            text-align: right;
-            flex-shrink: 0;
+            transition: all 0.25s ease;
+            display: flex; align-items: center; gap: 12px;
+            text-align: right; flex-shrink: 0;
+            backdrop-filter: blur(6px);
         }
-
+        .slide-option:hover { background: rgba(255,255,255,.09); border-color:rgba(255,255,255,.18); }
         .slide-option.selected {
-            border-color: var(--accent);
-            background: rgba(245, 158, 11, 0.15);
+            border-color: #f59e0b;
+            background: rgba(245,158,11,.12);
         }
-
         .slide-option i {
-            font-size: 1.3rem;
-            color: var(--accent);
-            width: 35px;
-            height: 35px;
-            background: var(--bg-secondary);
+            font-size: 1.15rem; color: #94a3b8;
+            width: 34px; height: 34px;
+            background: rgba(255,255,255,.07);
             border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: flex; align-items: center; justify-content: center;
             flex-shrink: 0;
+            transition: color .25s, background .25s;
+        }
+        .slide-option.selected i { color: #fbbf24; background: rgba(245,158,11,.18); }
+        .slide-option span { font-weight: 600; font-size: .92rem; color: #e2e8f0; }
+
+        /* Pagination */
+        .swiper-pagination { bottom: 4px !important; }
+        .swiper-pagination-bullet {
+            background: rgba(255,255,255,.2);
+            opacity: 1;
+            width: 7px; height: 7px;
+            transition: all .35s;
+        }
+        .swiper-pagination-bullet-active {
+            background: #f59e0b;
+            width: 22px; border-radius: 4px;
         }
 
-        .slide-option span {
-            font-weight: 600;
-            font-size: 0.95rem;
-        }
-
+        /* Footer */
         .onboarding-footer {
-            padding: 20px 30px;
+            position: relative; z-index: 2;
+            padding: 16px 24px 28px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: var(--bg-secondary);
-            border-top: 1px solid var(--border-color);
             flex-shrink: 0;
-            height: 100px;
+            background: rgba(7,13,26,.8);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(255,255,255,.07);
         }
-
         .skip-btn {
-            color: var(--text-secondary);
-            background: none;
-            border: none;
-            font-family: 'DM Sans', 'Cairo', sans-serif;
-            font-size: 1rem;
-            cursor: pointer;
-            padding: 10px;
+            color: rgba(148,163,184,.7);
+            background: none; border: none;
+            font-family: 'DM Sans','Cairo',sans-serif;
+            font-size: .9rem; cursor: pointer;
+            padding: 10px 6px;
+            transition: color .2s;
         }
-
+        .skip-btn:hover { color: #94a3b8; }
         .next-btn, .start-btn {
-            padding: 12px 28px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            font-family: 'DM Sans', 'Cairo', sans-serif;
-            font-size: 1rem;
-            font-weight: 700;
+            padding: 13px 30px;
+            background: linear-gradient(135deg,#f59e0b,#f97316);
+            color: #0f172a;
+            border: none; border-radius: 50px;
+            font-family: 'DM Sans','Cairo',sans-serif;
+            font-size: .95rem; font-weight: 800;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
-            transition: transform 0.3s;
+            display: flex; align-items: center; gap: 8px;
+            box-shadow: 0 6px 24px rgba(245,158,11,.45);
+            transition: transform .2s, box-shadow .2s;
         }
-
         .next-btn:active, .start-btn:active {
             transform: scale(0.95);
+            box-shadow: 0 2px 10px rgba(245,158,11,.3);
         }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .swiper-pagination-bullet {
-            background: var(--text-secondary);
-            opacity: 0.5;
-            width: 8px;
-            height: 8px;
-        }
-
-        .swiper-pagination-bullet-active {
-            background: var(--accent);
-            opacity: 1;
-            width: 24px;
-            border-radius: 4px;
+        .start-btn {
+            background: linear-gradient(135deg,#22c55e,#16a34a);
+            box-shadow: 0 6px 24px rgba(34,197,94,.4);
+            color: white;
         }
 
         .header {
@@ -1558,22 +1628,49 @@
 
         .offline-bar {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: var(--danger);
-            color: white;
-            text-align: center;
-            padding: 12px;
-            font-size: 0.9rem;
-            display: none;
-            z-index: 1000;
-            font-weight: 600;
+            top: 0; left: 0; right: 0;
+            z-index: 9999;
+            transform: translateY(-100%);
+            transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+            pointer-events: none;
         }
-
-        .offline-bar.show {
-            display: block;
+        .offline-bar.show { transform: translateY(0); pointer-events: auto; }
+        .offline-bar-inner {
+            display: flex; align-items: center;
+            justify-content: center; gap: 10px;
+            padding: 11px 16px;
+            background: linear-gradient(135deg,#1e293b 0%,#0f172a 100%);
+            border-bottom: 2px solid #ef4444;
+            color: #f8fafc; font-size: 0.88rem; font-weight: 600;
+            box-shadow: 0 4px 20px rgba(0,0,0,.45);
         }
+        .offline-bar-inner.online-restored {
+            background: linear-gradient(135deg,#064e3b 0%,#065f46 100%);
+            border-bottom-color: #22c55e;
+        }
+        .offline-bar-icon {
+            width:32px; height:32px; border-radius:50%;
+            background:rgba(239,68,68,.18);
+            display:flex; align-items:center; justify-content:center;
+            flex-shrink:0; font-size:.95rem; color:#fca5a5;
+        }
+        .offline-bar-inner.online-restored .offline-bar-icon {
+            background:rgba(34,197,94,.18); color:#86efac;
+        }
+        .offline-bar-texts { display:flex; flex-direction:column; gap:1px; }
+        .offline-bar-title { font-size:.9rem; font-weight:700; color:#fca5a5; line-height:1.2; }
+        .offline-bar-inner.online-restored .offline-bar-title { color:#86efac; }
+        .offline-bar-sub { font-size:.75rem; color:#94a3b8; font-weight:400; }
+        .offline-bar-retry {
+            margin-right:auto;
+            background:rgba(239,68,68,.2); border:1px solid rgba(239,68,68,.4);
+            color:#fca5a5; padding:5px 14px; border-radius:20px;
+            font-size:.78rem; font-weight:600; cursor:pointer;
+            font-family:inherit; transition:background .2s; white-space:nowrap; flex-shrink:0;
+        }
+        .offline-bar-retry:hover { background:rgba(239,68,68,.35); }
+        @keyframes offlinePulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+        .offline-bar-icon.pulsing { animation:offlinePulse 1.8s ease-in-out infinite; }
 
         .bottom-nav {
             position: fixed;
@@ -3529,77 +3626,99 @@
 <body data-theme="dark">
 
     <div class="onboarding-container" id="onboarding">
+
+        <!-- خلفية متحركة -->
+        <div class="ob-bg">
+            <div class="ob-dots-grid"></div>
+            <div class="ob-glow ob-glow-1"></div>
+            <div class="ob-glow ob-glow-2"></div>
+            <div class="ob-glow ob-glow-3"></div>
+        </div>
+
+        <!-- شريط التقدم -->
+        <div class="ob-progress-bar" id="obProgressBar">
+            <div class="ob-logo">
+                <i class="fas fa-cloud-sun"></i>
+                طقس السودان
+            </div>
+            <div class="ob-steps" id="obSteps">
+                <div class="ob-step active" data-i="0"></div>
+                <div class="ob-step pending" data-i="1"></div>
+                <div class="ob-step pending" data-i="2"></div>
+                <div class="ob-step pending" data-i="3"></div>
+            </div>
+        </div>
+
         <div class="swiper mySwiper">
             <div class="swiper-wrapper">
 
                 <div class="swiper-slide slide-1">
                     <div class="slide-icon">
-                        <i class="fas fa-cloud-sun" style="color: white;"></i>
+                        <i class="fas fa-cloud-sun" style="color:white;"></i>
                     </div>
-                    <h2 class="slide-title">طقس السودان</h2>
+                    <h2 class="slide-title">أهلاً بك في<br>طقس السودان</h2>
                     <p class="slide-desc">
-                        أهلاً بك في تطبيق طقس السودان الرسمي!
-                        توقعات دقيقة لجميع مدن السودان
+                        توقعات جوية دقيقة لأكثر من 70 مدينة سودانية،
+                        مدعومة بالذكاء الاصطناعي وبيانات محلية متخصصة.
                     </p>
                 </div>
 
                 <div class="swiper-slide slide-2">
                     <div class="slide-icon">
-                        <i class="fas fa-map-marker-alt" style="color: white;"></i>
+                        <i class="fas fa-map-marker-alt" style="color:white;"></i>
                     </div>
                     <h2 class="slide-title">اختر مدينتك</h2>
-                    <p class="slide-desc">ما هي المدينة التي تريد تعيينها كمدينة رئيسية؟</p>
-                    <div style="width:100%;max-width:340px;margin-top:10px;">
-                        <div style="position:relative;">
-                            <i class="fas fa-magnifying-glass" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--accent);pointer-events:none;font-size:1rem;z-index:1;"></i>
-                            <input id="cityDropdown" type="search"
-                                placeholder="🏙️ ابحث عن مدينتك... الخرطوم، نيالا..."
+                    <p class="slide-desc">اختر المدينة الرئيسية من القائمة أدناه</p>
+                    <div style="width:100%;max-width:340px;margin-top:4px;">
+                        <div style="position:relative;margin-bottom:10px;">
+                            <i class="fas fa-magnifying-glass" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:rgba(245,158,11,.7);pointer-events:none;font-size:0.85rem;z-index:1;"></i>
+                            <input id="obCityFilter" type="search"
+                                placeholder="ابحث عن مدينة..."
                                 autocomplete="off" inputmode="search"
-                                style="width:100%;box-sizing:border-box;padding:16px 48px 16px 20px;
-                                       font-family:'Cairo','DM Sans',sans-serif;font-size:1rem;font-weight:600;
-                                       background:var(--bg-card);color:var(--text-primary);
-                                       border:2px solid var(--border-color);border-radius:16px;
-                                       outline:none;direction:rtl;transition:border-color 0.2s;"
-                                oninput="_obSearchCity(this.value)">
-
-                            <div id="obCityResults"
-                                 style="position:absolute;top:calc(100% + 6px);right:0;left:0;
-                                        background:var(--bg-card);border:2px solid var(--border-color);
-                                        border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.5);
-                                        z-index:999;max-height:230px;overflow-y:auto;
-                                        display:none;scrollbar-width:none;">
-                            </div>
+                                style="width:100%;box-sizing:border-box;padding:12px 42px 12px 14px;
+                                       font-family:'Cairo','DM Sans',sans-serif;font-size:0.9rem;
+                                       background:rgba(255,255,255,.07);color:#f1f5f9;
+                                       border:1.5px solid rgba(255,255,255,.15);border-radius:14px;
+                                       outline:none;direction:rtl;transition:border-color 0.2s;
+                                       backdrop-filter:blur(8px);"
+                                onfocus="this.style.borderColor='rgba(245,158,11,.6)'"
+                                onblur="this.style.borderColor='rgba(255,255,255,.15)'">
                         </div>
-                        <div id="citySelectedPreview" style="display:none;margin-top:15px;padding:16px 20px;
-                             background:rgba(245,158,11,0.15);border:2px solid var(--accent);border-radius:16px;
-                             align-items:center;gap:12px;">
-                            <i class="fas fa-check-circle" style="color:var(--accent);font-size:1.4rem;"></i>
+                        <div id="obCityList"
+                             style="display:flex;flex-direction:column;gap:7px;
+                                    max-height:280px;overflow-y:auto;padding-left:2px;
+                                    -webkit-overflow-scrolling:touch;scrollbar-width:thin;
+                                    scrollbar-color:rgba(245,158,11,.4) transparent;">
+                        </div>
+                        <div id="citySelectedPreview" style="display:none;margin-top:10px;padding:13px 16px;
+                             background:rgba(245,158,11,.12);border:1.5px solid rgba(245,158,11,.5);
+                             border-radius:14px;align-items:center;gap:10px;backdrop-filter:blur(8px);">
+                            <i class="fas fa-check-circle" style="color:#fbbf24;font-size:1.2rem;flex-shrink:0;"></i>
                             <div>
-                                <div style="font-size:0.82rem;color:var(--text-secondary);">المدينة المختارة</div>
-                                <div id="citySelectedName" style="font-size:1.1rem;font-weight:700;"></div>
+                                <div style="font-size:.75rem;color:rgba(203,213,225,.7);">المدينة المختارة</div>
+                                <div id="citySelectedName" style="font-size:1rem;font-weight:700;color:#f1f5f9;"></div>
                             </div>
                         </div>
                     </div>
-
                     <div id="cityOptions" style="display:none;"></div>
                 </div>
 
                 <div class="swiper-slide slide-3">
                     <div class="slide-icon">
-                        <i class="fas fa-sliders-h" style="color: white;"></i>
+                        <i class="fas fa-sliders-h" style="color:white;"></i>
                     </div>
                     <h2 class="slide-title">تفضيلاتك</h2>
-                    <p class="slide-desc">اختر الإعدادات المناسبة لك</p>
+                    <p class="slide-desc">اختر الإعدادات المناسبة لتجربة مثالية</p>
                     <div class="slide-options">
-                        <div class="slide-option selected" onclick="toggleSlideOption(this, 'notifications')">
+                        <div class="slide-option selected" onclick="toggleSlideOption(this,'notifications')">
                             <i class="fas fa-bell"></i>
                             <span>تفعيل الإشعارات</span>
                         </div>
-                        <div class="slide-option selected" onclick="toggleSlideOption(this, 'autoUpdate')">
+                        <div class="slide-option selected" onclick="toggleSlideOption(this,'autoUpdate')">
                             <i class="fas fa-sync"></i>
-                            <span>تحديث تلقائي</span>
+                            <span>تحديث تلقائي للطقس</span>
                         </div>
-                        <div class="slide-option selected" onclick="toggleSlideOption(this, 'darkMode')" id="darkModeOption">
+                        <div class="slide-option selected" onclick="toggleSlideOption(this,'darkMode')" id="darkModeOption">
                             <i class="fas fa-moon"></i>
                             <span>الوضع الليلي</span>
                         </div>
@@ -3608,12 +3727,12 @@
 
                 <div class="swiper-slide slide-4">
                     <div class="slide-icon">
-                        <i class="fas fa-check" style="color: white;"></i>
+                        <i class="fas fa-check" style="color:white;"></i>
                     </div>
-                    <h2 class="slide-title">جاهز!</h2>
+                    <h2 class="slide-title">كل شيء جاهز!</h2>
                     <p class="slide-desc">
-                        تم إعداد التطبيق بنجاح.
-                        اضغط "ابدأ" للدخول إلى التطبيق
+                        تم إعداد تطبيقك بنجاح.
+                        اضغط <strong style="color:#22c55e;">ابدأ</strong> للدخول وابدأ باستكشاف طقس السودان.
                     </p>
                 </div>
             </div>
@@ -3626,13 +3745,24 @@
                 التالي <i class="fas fa-arrow-left"></i>
             </button>
             <button class="start-btn hidden" id="startBtn" onclick="finishOnboarding()">
-                ابدأ <i class="fas fa-play"></i>
+                <i class="fas fa-play"></i> ابدأ
             </button>
         </div>
     </div>
 
-    <div class="offline-bar" id="offlineBar">
-        <i class="fas fa-wifi-slash"></i> لا يوجد اتصال - آخر بيانات محفوظة
+    <div class="offline-bar" id="offlineBar" role="status" aria-live="polite">
+        <div class="offline-bar-inner" id="offlineBarInner">
+            <div class="offline-bar-icon pulsing" id="offlineBarIcon">
+                <i class="fas fa-wifi-slash" id="offlineBarIco"></i>
+            </div>
+            <div class="offline-bar-texts">
+                <div class="offline-bar-title" id="offlineBarTitle">وضع عدم الاتصال</div>
+                <div class="offline-bar-sub" id="offlineBarSub">يتم عرض آخر البيانات المحفوظة</div>
+            </div>
+            <button class="offline-bar-retry" id="offlineBarRetry" onclick="window._retryConnection()">
+                <i class="fas fa-redo-alt"></i> إعادة المحاولة
+            </button>
+        </div>
     </div>
 
     <div class="loader" id="loader">
@@ -5316,18 +5446,18 @@
                     }
                 }, ()=>{});
 
-                if (window._msgUnsub) { try { window._msgUnsub(); } catch(_){} }
+                if (window._msgUnsub) { try { window._msgUnsub(); } catch(_){ /* swallowed */ } }
             window._msgUnsub = onSnapshot(doc(db, 'config', 'messages'), (snap) => {
                     if (snap.exists()) window._adminMessages = snap.data();
                 }, ()=>{});
 
-                if (window._citiesUnsub) { try { window._citiesUnsub(); } catch(_){} }
+                if (window._citiesUnsub) { try { window._citiesUnsub(); } catch(_){ /* swallowed */ } }
             window._citiesUnsub = onSnapshot(doc(db, 'config', 'cities'), (snap) => {
                     if (snap.exists() && snap.data().list) {
                         window._adminCities = snap.data().list;
                         if (typeof allCities !== 'undefined') {
                             Object.assign(allCities, window._adminCities);
-                            try { renderCitySelector?.(); renderSettingsCities?.(); window.renderCmpCityRow?.(); } catch(_e) {}
+                            try { renderCitySelector?.(); renderSettingsCities?.(); window.renderCmpCityRow?.(); } catch(_e){ /* swallowed */ }
                         }
                     }
                 }, ()=>{});
@@ -5336,8 +5466,7 @@
                     _setupNotificationsListener(currentUser.uid);
                     _listenForBan(currentUser.uid);
                 }
-            } catch(e) {
-            }
+            } catch(e){ /* swallowed */ }
         }
 
         window._banUnsub = null;
@@ -5353,7 +5482,7 @@
                         if (window._notifUnsub) window._notifUnsub();
                     }
                 }, ()=>{});
-            } catch(_e) {}
+            } catch(_e){ /* swallowed */ }
         }
 
         window._notifUnsub = null;
@@ -5378,7 +5507,7 @@
                         });
                     }, ()=>{}
                 );
-            } catch(_e) {}
+            } catch(_e){ /* swallowed */ }
         }
 
         async function _loadAdminNotifications(uid) { _setupNotificationsListener(uid); }
@@ -5591,9 +5720,9 @@
             const _prevUid = window._firebaseUser?.uid;
             if (_prevUid && user?.uid !== _prevUid) {
 
-                try { window._closeSubListener?.(); } catch(_cs) {}
+                try { window._closeSubListener?.(); } catch(_cs){ /* swallowed */ }
 
-                try { window._resetAILock?.(); } catch(_rl) {}
+                try { window._resetAILock?.(); } catch(_rl){ /* swallowed */ }
 
                 window._aiLimitsCache = { requestUsed: 0, requestLimit: 0, planType: 'free' };
 
@@ -5601,7 +5730,7 @@
                 try {
                     if (typeof aiChatHistory !== 'undefined') aiChatHistory = [];
                     if (typeof clearAIChat === 'function') clearAIChat();
-                } catch(_ce) {}
+                } catch(_ce){ /* swallowed */ }
             }
             currentUser        = user;
             window._firebaseUser = user;
@@ -5614,22 +5743,22 @@
                 updateAuthUI(user);
 
                 try {
-                    const _localSub = localStorage.getItem('wxsub_local_user');
+                    const _localSub = safeLS.get('wxsub_local_user');
                     if (_localSub) {
                         const _s = JSON.parse(_localSub);
                         if (_s.status === 'approved' && (new Date(_s.expiresAt).getTime() + 60 * 60 * 1000) > Date.now()) {
                             _s.uid = user.uid;
                             _s.email = user.email || _s.email || '--';
-                            try { localStorage.setItem('wxsub_' + user.uid, JSON.stringify(_s)); } catch(_lse) {}
+                            try { safeLS.setJSON('wxsub_' + user.uid, _s); } catch(_lse){ /* swallowed */ }
                             if (window._fbSetDoc) {
                                 window._fbSetDoc('wxsubscriptions/' + user.uid, _s).catch(()=>{});
                             }
                         }
-                        localStorage.removeItem('wxsub_local_user');
+                        safeLS.remove('wxsub_local_user');
                     }
-                } catch(_migErr) {}
+                } catch(_migErr){ /* swallowed */ }
 
-                try { window._closeSubListener?.(); } catch(_cs2) {}
+                try { window._closeSubListener?.(); } catch(_cs2){ /* swallowed */ }
 
                 await syncFromFirebase(user.uid);
                 startRealtimeSync(user.uid);
@@ -5644,25 +5773,25 @@
                     window._isAdmin = false;
                 }
 
-                try { listenToSubscription(user.uid); } catch(_ls) {}
+                try { listenToSubscription(user.uid); } catch(_ls){ /* swallowed */ }
 
-                try { _forceSubSync(user.uid); } catch(_fss) {}
+                try { _forceSubSync(user.uid); } catch(_fss){ /* swallowed */ }
 
-                try { _setupNotificationsListener(user.uid); } catch(_sn) {}
-                try { _listenForBan(user.uid); } catch(_lb) {}
+                try { _setupNotificationsListener(user.uid); } catch(_sn){ /* swallowed */ }
+                try { _listenForBan(user.uid); } catch(_lb){ /* swallowed */ }
 
                 if (_prevUid && user.uid !== _prevUid) {
-                    setTimeout(function() { try { loadWeather(true); } catch(_e) {} }, 1500);
+                    setTimeout(function() { try { loadWeather(true); } catch(_e){ /* swallowed */ } }, 1500);
                 }
 
-                try { checkPendingInvoices(user.uid); } catch(_cpi) {}
+                try { checkPendingInvoices(user.uid); } catch(_cpi){ /* swallowed */ }
             } else {
                 window._isAdmin = false;
                 document.documentElement.removeAttribute('data-admin');
                 updateAuthUILoggedOut();
 
-                try { window.pwApplyToUI?.(); } catch(e) {}
-                try { window.pwRenderSettings?.(); } catch(e) {}
+                try { window.pwApplyToUI?.(); } catch(e){ /* swallowed */ }
+                try { window.pwRenderSettings?.(); } catch(e){ /* swallowed */ }
             }
         });
 
@@ -5673,7 +5802,7 @@
         function updateAuthUI(user) {
             document.getElementById('profileSection').classList.remove('hidden');
             document.getElementById('loginSection').classList.add('hidden');
-            const savedName = localStorage.getItem('userName') || '';
+            const savedName = safeLS.get('userName', '');
             const displayName = user.displayName || savedName || '';
             const nameEl  = document.getElementById('profileName');
             const emailEl = document.getElementById('profileEmail');
@@ -5686,12 +5815,12 @@
                 initialEl.textContent = initChar;
             }
 
-            const favCount = (function(k,d){try{const r=localStorage.getItem(k);return r===null?d:JSON.parse(r);}catch(e){return d;}})('favCities', []).length;
+            const favCount = (function(k,d){try{const r=safeLS.get(k);return r===null?d:JSON.parse(r);}catch(e){return d;}})('favCities', []).length;
             const statFav  = document.getElementById('statFavCount');
             if (statFav) statFav.textContent = favCount;
             const syncTimeEl = document.getElementById('statSyncTime');
             if (syncTimeEl) {
-                const raw = localStorage.getItem('lastFBSync');
+                const raw = safeLS.get('lastFBSync');
                 if (raw) {
                     const d = new Date(raw);
                     const h = d.getHours().toString().padStart(2, '0');
@@ -5737,24 +5866,24 @@
             if (_dangerZone) _dangerZone.style.display = 'none';
 
             try {
-                Object.keys(localStorage).filter(k => k.startsWith('wxsub_')).forEach(k => localStorage.removeItem(k));
-            } catch(_) {}
+                Object.keys(localStorage).filter(k => k.startsWith('wxsub_')).forEach(k => safeLS.remove(k));
+            } catch(_){ /* swallowed */ }
 
-            try { if (window._banUnsub) { window._banUnsub(); window._banUnsub = null; } } catch(_) {}
-            try { if (window._notifUnsub) { window._notifUnsub(); window._notifUnsub = null; } } catch(_) {}
+            try { if (window._banUnsub) { window._banUnsub(); window._banUnsub = null; } } catch(_){ /* swallowed */ }
+            try { if (window._notifUnsub) { window._notifUnsub(); window._notifUnsub = null; } } catch(_){ /* swallowed */ }
 
-            try { window._closeSubListener?.(); } catch(_) {}
+            try { window._closeSubListener?.(); } catch(_){ /* swallowed */ }
 
-            try { if (window._msgUnsub) { window._msgUnsub(); window._msgUnsub = null; } } catch(_) {}
-            try { if (window._citiesUnsub) { window._citiesUnsub(); window._citiesUnsub = null; } } catch(_) {}
-            try { if (typeof _unsubSnapshot !== 'undefined' && _unsubSnapshot) { _unsubSnapshot(); _unsubSnapshot = null; } } catch(_) {}
-            try { if (typeof _sysSettingsUnsub !== 'undefined' && _sysSettingsUnsub) { _sysSettingsUnsub(); _sysSettingsUnsub = null; } } catch(_) {}
+            try { if (window._msgUnsub) { window._msgUnsub(); window._msgUnsub = null; } } catch(_){ /* swallowed */ }
+            try { if (window._citiesUnsub) { window._citiesUnsub(); window._citiesUnsub = null; } } catch(_){ /* swallowed */ }
+            try { if (typeof _unsubSnapshot !== 'undefined' && _unsubSnapshot) { _unsubSnapshot(); _unsubSnapshot = null; } } catch(_){ /* swallowed */ }
+            try { if (typeof _sysSettingsUnsub !== 'undefined' && _sysSettingsUnsub) { _sysSettingsUnsub(); _sysSettingsUnsub = null; } } catch(_){ /* swallowed */ }
 
-            try { window._resetAILock?.(); } catch(_) {}
+            try { window._resetAILock?.(); } catch(_){ /* swallowed */ }
 
             window._aiLimitsCache = { requestUsed: 0, requestLimit: 0, planType: 'free' };
-            try { window.pwApplyToUI?.(); } catch(_) {}
-            try { window.pwRenderSettings?.(); } catch(_) {}
+            try { window.pwApplyToUI?.(); } catch(_){ /* swallowed */ }
+            try { window.pwRenderSettings?.(); } catch(_){ /* swallowed */ }
         }
 
         window._copyUid = function() {
@@ -5796,7 +5925,7 @@
             const timeEl = document.getElementById('statSyncTime');
             if (!timeEl) return;
             if (state === 'ok') {
-                const raw = localStorage.getItem('lastFBSync');
+                const raw = safeLS.get('lastFBSync');
                 if (raw) {
                     const d = new Date(raw);
                     const h = d.getHours().toString().padStart(2, '0');
@@ -5820,11 +5949,11 @@
         }
 
         function buildSyncPayload(uid) {
-            const userName = localStorage.getItem('userName') || window._userName || '';
-            const favs     = (() => { try { return JSON.parse(localStorage.getItem('favCities') || '[]'); } catch(e) { return []; } })();
-            const settings = (() => { try { return JSON.parse(localStorage.getItem('appSettings') || '{}'); } catch(e) { return {}; } })();
+            const userName = safeLS.get('userName') || window._userName || '';
+            const favs     = (() => { try { return JSON.parse(safeLS.get('favCities') || '[]'); } catch(e) { return []; } })();
+            const settings = (() => { try { return JSON.parse(safeLS.get('appSettings') || '{}'); } catch(e) { return {}; } })();
 
-            const sub = (() => { try { return JSON.parse(localStorage.getItem('wxsub_' + uid) || 'null'); } catch(e) { return null; } })();
+            const sub = (() => { try { return safeLS.getJSON('wxsub_' + uid, null); } catch(e) { return null; } })();
 
             const payload = {
                 userName,
@@ -5842,37 +5971,46 @@
             if (!data) return;
 
             if (data.userName) {
-                try { localStorage.setItem('userName', data.userName); } catch(_lse) {}
+                try { safeLS.set('userName', data.userName); } catch(_lse){ /* swallowed */ }
                 window._userName = data.userName;
             }
 
             if (Array.isArray(data.favorites)) {
-                try { localStorage.setItem('favCities', JSON.stringify(data.favorites)); } catch(_lse) {}
+                try { safeLS.setJSON('favCities', data.favorites); } catch(_lse){ /* swallowed */ }
                 if (window.favorites !== undefined) {
                     window.favorites = data.favorites;
-                    try { window.updateFavBadge?.(); window.updateFavList?.(); } catch(e) {}
+                    try { window.updateFavBadge?.(); window.updateFavList?.(); } catch(e){ /* swallowed */ }
                 }
             }
 
             if (data.settings && typeof data.settings === 'object') {
-                const local = (() => { try { return JSON.parse(localStorage.getItem('appSettings') || '{}'); } catch(e) { return {}; } })();
+                const local = (() => { try { return JSON.parse(safeLS.get('appSettings') || '{}'); } catch(e) { return {}; } })();
                 const merged = Object.assign({}, local, data.settings);
-                localStorage.setItem('appSettings', JSON.stringify(merged));
-                try { window.scheduleSync?.(); } catch(e) {}
+                safeLS.setJSON('appSettings', merged);
+                try { window.scheduleSync?.(); } catch(e){ /* swallowed */ }
             }
 
             if (data.subscription && data.subscription.active === true) {
                 const _expRaw = data.subscription.expiresAt;
                 const expiry  = (_expRaw && _expRaw.toDate) ? _expRaw.toDate() : new Date(_expRaw);
+                const _expiryISO = expiry instanceof Date && !isNaN(expiry) ? expiry.toISOString() : _expRaw;
                 const _subSafe = {
                     ...data.subscription,
                     status:    data.subscription.status || 'approved',
-                    expiresAt: expiry instanceof Date && !isNaN(expiry) ? expiry.toISOString() : _expRaw,
+                    expiresAt: _expiryISO,
+                    _sig: (function() {
+                        try {
+                            const _raw = (data.subscription.uid || uid) + '|'
+                                + (data.subscription.planId || data.subscription.planType || 'starter') + '|'
+                                + _expiryISO;
+                            return btoa(unescape(encodeURIComponent(_raw)));
+                        } catch(_sigE) { return data.subscription._sig; }
+                    })(),
                 };
 
                 const _GRACE_APPLY = 60 * 60 * 1000;
                 if (expiry instanceof Date && !isNaN(expiry) && (expiry.getTime() + _GRACE_APPLY) > Date.now()) {
-                    localStorage.setItem('wxsub_' + uid, JSON.stringify(_subSafe));
+                    safeLS.setJSON('wxsub_' + uid, _subSafe);
 
                     var _ptA = data.subscription.planType || data.subscription.planId || 'free';
                     var _defA = _ptA === 'starter' ? 30 : _ptA === 'annual' ? 100 : 50;
@@ -5885,15 +6023,15 @@
                         requestLimit: data.subscription.requestLimit || data.subscription.dailyAI || _defA,
                         planType:     _ptA,
                     };
-                    try { window.pwApplyToUI?.(); } catch(e) {}
-                    try { window.pwRenderSettings?.(); } catch(e) {}
-                    try { updateUsageCounter?.(); } catch(e) {}
+                    try { window.pwApplyToUI?.(); } catch(e){ /* swallowed */ }
+                    try { window.pwRenderSettings?.(); } catch(e){ /* swallowed */ }
+                    try { updateUsageCounter?.(); } catch(e){ /* swallowed */ }
                 } else {
 
-                    localStorage.removeItem('wxsub_' + uid);
+                    safeLS.remove('wxsub_' + uid);
                     window._aiLimitsCache = { requestUsed: 0, requestLimit: 0, planType: 'free' };
-                    try { window.pwApplyToUI?.(); } catch(e) {}
-                    try { updateUsageCounter?.(); } catch(e) {}
+                    try { window.pwApplyToUI?.(); } catch(e){ /* swallowed */ }
+                    try { updateUsageCounter?.(); } catch(e){ /* swallowed */ }
                 }
             }
         }
@@ -5948,23 +6086,23 @@
 
                 try {
                     var _pk = 'ai_pending_' + uid;
-                    var _pend = parseInt(localStorage.getItem(_pk) || '0');
+                    var _pend = parseInt(safeLS.get(_pk, '0'));
                     if (_pend > 0 && window._fbIncrement) {
-                        localStorage.removeItem(_pk);
+                        safeLS.remove(_pk);
                         updateDoc(doc(db, 'wxsubscriptions', uid), {
                             requestUsed: window._fbIncrement(_pend),
                             lastAIRequest: serverTimestamp()
-                        }).catch(function(){});
+                        }).catch(function(){ /* swallowed */ });
                     }
-                } catch(_pe) {}
+                } catch(_pe){ /* swallowed */ }
 
                 if (currentUser) updateAuthUI(currentUser);
                 setSyncUI('ok');
-                localStorage.setItem('lastFBSync', new Date().toISOString());
+                safeLS.set('lastFBSync', new Date().toISOString());
 
-                try { window.pwApplyToUI?.(); } catch(e) {}
-                try { window.pwRenderSettings?.(); } catch(e) {}
-                try { updateUsageCounter?.(); } catch(e) {}
+                try { window.pwApplyToUI?.(); } catch(e){ /* swallowed */ }
+                try { window.pwRenderSettings?.(); } catch(e){ /* swallowed */ }
+                try { updateUsageCounter?.(); } catch(e){ /* swallowed */ }
             } catch(e) {
                 setSyncUI(navigator.onLine ? 'error' : 'offline');
             }
@@ -5973,8 +6111,9 @@
         let _syncDebounceTimer = null;
         function scheduleSync(delayMs = 800) {
             if (!currentUser) return;
+            const _sUid = currentUser.uid;
             clearTimeout(_syncDebounceTimer);
-            _syncDebounceTimer = setTimeout(() => pushToFirebase(currentUser.uid), delayMs);
+            _syncDebounceTimer = setTimeout(() => { if (_sUid) pushToFirebase(_sUid); }, delayMs);
         }
         window.scheduleSync = scheduleSync;
 
@@ -6007,7 +6146,7 @@
 
         await batch.commit();
         setSyncUI('ok');
-        localStorage.setItem('lastFBSync', new Date().toISOString());
+        safeLS.set('lastFBSync', new Date().toISOString());
     } catch (e) {
         setSyncUI(navigator.onLine ? 'error' : 'offline');
     }
@@ -6022,7 +6161,7 @@
             }, (err) => {
 
                 if (err && err.code !== 'permission-denied') {
-                    try { syncFromFirebase(uid); } catch(_e) {}
+                    try { syncFromFirebase(uid); } catch(_e){ /* swallowed */ }
                 }
             });
         }
@@ -6039,7 +6178,14 @@
         }, 3 * 60 * 1000);
 
         window.addEventListener('online',  () => {
-            if (currentUser) pushToFirebase(currentUser.uid);
+            if (currentUser) {
+                pushToFirebase(currentUser.uid);
+                const _onUid = currentUser.uid;
+                setTimeout(function() {
+                    try { _forceSubSync(_onUid); } catch(_e){ /* swallowed */ }
+                    try { syncFromFirebase(_onUid); } catch(_e2){ /* swallowed */ }
+                }, 1200);
+            }
             setSyncUI('ok');
         });
         window.addEventListener('offline', () => setSyncUI('offline'));
@@ -6077,7 +6223,7 @@
                     const name = nameInput ? nameInput.value.trim() : '';
                     if (name) {
                         await updateProfile(cred.user, { displayName: name });
-                        localStorage.setItem('userName', name);
+                        safeLS.set('userName', name);
                         window._userName = name;
 
                         setTimeout(() => window.saveToFirebase && window.saveToFirebase(), 800);
@@ -6155,13 +6301,13 @@
 
             const keysToKeep = ['onboardingComplete', 'appSettings'];
             const preserve = {};
-            keysToKeep.forEach(k => { const v = localStorage.getItem(k); if (v) preserve[k] = v; });
+            keysToKeep.forEach(k => { const v = safeLS.get(k); if (v) preserve[k] = v; });
 
             Object.keys(localStorage).filter(k => k.startsWith('ai_free_')).forEach(k => {
-                const v = localStorage.getItem(k); if (v) preserve[k] = v;
+                const v = safeLS.get(k); if (v) preserve[k] = v;
             });
-            localStorage.clear();
-            Object.keys(preserve).forEach(k => { if (preserve[k]) localStorage.setItem(k, preserve[k]); });
+            try { localStorage.clear(); } catch(_lce){ /* swallowed */ }
+            Object.keys(preserve).forEach(k => { if (preserve[k]) safeLS.set(k, preserve[k]); });
 
             window._firebaseUser = null;
             window._userName = null;
@@ -6176,15 +6322,15 @@
                 const _chatEl = document.getElementById('aiChat');
                 if (_chatEl) _chatEl.innerHTML = '';
                 if (typeof clearAIChat === 'function') clearAIChat();
-            } catch(_ce) {}
+            } catch(_ce){ /* swallowed */ }
 
             if (window.favorites) { window.favorites = []; }
-            try { window.updateFavBadge && window.updateFavBadge(); } catch(e){}
-            try { window.updateFavList && window.updateFavList(); } catch(e){}
-            try { await signOut(auth); } catch(e) {}
+            try { window.updateFavBadge && window.updateFavBadge(); } catch(e){ /* swallowed */ }
+            try { window.updateFavList && window.updateFavList(); } catch(e){ /* swallowed */ }
+            try { await signOut(auth); } catch(e){ /* swallowed */ }
 
-            try { window.pwApplyToUI?.(); } catch(e) {}
-            try { window.pwRenderSettings?.(); } catch(e) {}
+            try { window.pwApplyToUI?.(); } catch(e){ /* swallowed */ }
+            try { window.pwRenderSettings?.(); } catch(e){ /* swallowed */ }
             window.hideAuthPage && window.hideAuthPage();
         };
 
@@ -6217,7 +6363,7 @@
                 currentUser.displayName = newName;
                 window._firebaseUser = currentUser;
                 window._userName = newName;
-                localStorage.setItem('userName', newName);
+                safeLS.set('userName', newName);
 
                 updateAuthUI(currentUser);
 
@@ -6342,7 +6488,8 @@
                 'white-space:nowrap'
             ].join(';');
 
-            div.innerHTML = '<i class="fas ' + t.icon + '" style="color:' + t.c + ';font-size:1.15rem;flex-shrink:0;"></i><span style="color:#f1f5f9;">' + msg + '</span>';
+            const _safeMsg = String(msg).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            div.innerHTML = '<i class="fas ' + t.icon + '" style="color:' + t.c + ';font-size:1.15rem;flex-shrink:0;"></i><span style="color:#f1f5f9;">' + _safeMsg + '</span>';
             document.body.appendChild(div);
 
             requestAnimationFrame(() => {
@@ -6369,7 +6516,7 @@
 
         function safeLocalStorageGet(key, defaultValue) {
             try {
-                const raw = localStorage.getItem(key);
+                const raw = safeLS.get(key);
                 if (raw === null) return defaultValue;
                 return JSON.parse(raw);
             } catch (e) {
@@ -6377,10 +6524,40 @@
             }
         }
 
+        // ══ safeLS: غلاف آمن شامل لـ localStorage ══
+        var safeLS = {
+            get: function(key, fallback) {
+                try {
+                    var v = localStorage.getItem(key);
+                    return v === null ? (fallback !== undefined ? fallback : null) : v;
+                } catch(e) { return fallback !== undefined ? fallback : null; }
+            },
+            getJSON: function(key, fallback) {
+                try {
+                    var v = localStorage.getItem(key);
+                    if (v === null) return fallback !== undefined ? fallback : null;
+                    return JSON.parse(v);
+                } catch(e) { return fallback !== undefined ? fallback : null; }
+            },
+            set: function(key, value) {
+                try { localStorage.setItem(key, value); return true; } catch(e) { return false; }
+            },
+            setJSON: function(key, value) {
+                try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch(e) { return false; }
+            },
+            remove: function(key) {
+                try { localStorage.removeItem(key); return true; } catch(e) { return false; }
+            },
+            has: function(key) {
+                try { return localStorage.getItem(key) !== null; } catch(e) { return false; }
+            }
+        };
+        window.safeLS = safeLS;
+
         (function _cleanOldCache() {
             try {
                 var _CURRENT_VER = 'v2';
-                if (localStorage.getItem('wxCacheVer') !== _CURRENT_VER) {
+                if (safeLS.get('wxCacheVer') !== _CURRENT_VER) {
 
                     var toDelete = [];
                     for (var i = 0; i < localStorage.length; i++) {
@@ -6389,10 +6566,10 @@
                             toDelete.push(k);
                         }
                     }
-                    toDelete.forEach(function(k) { try { localStorage.removeItem(k); } catch(e){} });
-                    localStorage.setItem('wxCacheVer', _CURRENT_VER);
+                    toDelete.forEach(function(k) { safeLS.remove(k); });
+                    safeLS.set('wxCacheVer', _CURRENT_VER);
                 }
-            } catch(e) {}
+            } catch(e){ /* swallowed */ }
         })();
 
         if (typeof window.mainCities === 'undefined')   window.mainCities   = [];
@@ -6849,7 +7026,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
 
-            if (!localStorage.getItem('onboardingComplete')) {
+            if (!safeLS.has('onboardingComplete')) {
                 initOnboarding();
             } else {
                 document.getElementById('onboarding').classList.add('hidden');
@@ -6858,8 +7035,6 @@
         });
 
         function initOnboarding() {
-
-            _bindObCitySearch();
 
             swiper = new Swiper('.mySwiper', {
                 pagination: {
@@ -6872,9 +7047,28 @@
                 on: {
                     slideChange: function() {
                         updateNextButton(this.activeIndex);
+                        _obUpdateSteps(this.activeIndex);
                     }
                 }
             });
+
+            // تهيئة قائمة المدن بعد اكتمال DOM
+            var _obInitTries = 0;
+            function _tryInitCityList() {
+                if (typeof allCities !== 'undefined' && Object.keys(allCities).length > 0) {
+                    _obRenderCityList('');
+                    var filterInp = document.getElementById('obCityFilter');
+                    if (filterInp) {
+                        filterInp.addEventListener('input', function() {
+                            _obRenderCityList(this.value);
+                        });
+                    }
+                } else if (_obInitTries < 20) {
+                    _obInitTries++;
+                    setTimeout(_tryInitCityList, 150);
+                }
+            }
+            setTimeout(_tryInitCityList, 120);
         }
 
         function selectCityFromDropdown(value) {
@@ -6902,17 +7096,15 @@
 
         function nextSlide() {
             if (swiper.activeIndex === 1 && !onboardingData.mainCity) {
-                const inp = document.getElementById('cityDropdown');
-                if (inp) {
-                    inp.style.borderColor = 'var(--danger)';
-                    inp.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.25)';
-                    inp.placeholder = '⚠️ اختر مدينة أولاً...';
-                    setTimeout(() => {
-                        inp.style.borderColor = 'var(--border-color)';
-                        inp.style.boxShadow = 'none';
-                        inp.placeholder = '🏙️ ابحث عن مدينتك... الخرطوم، نيالا...';
+                var listEl = document.getElementById('obCityList');
+                if (listEl) {
+                    listEl.style.outline = '2px solid var(--danger)';
+                    listEl.style.borderRadius = '14px';
+                    setTimeout(function() {
+                        listEl.style.outline = '';
                     }, 1600);
                 }
+                showToastNotif('⚠️ يرجى اختيار مدينة أولاً', 'warn');
                 return;
             }
             swiper.slideNext();
@@ -6931,11 +7123,38 @@
             }
         }
 
+        function _obUpdateSteps(idx) {
+            var steps = document.querySelectorAll('.ob-step');
+            steps.forEach(function(s, i) {
+                s.classList.remove('done','active','pending');
+                if (i < idx)       s.classList.add('done');
+                else if (i === idx) s.classList.add('active');
+                else               s.classList.add('pending');
+            });
+        }
+
         function skipOnboarding() {
-            finishOnboarding();
+            // التخطي: يخفي الشاشة هذه المرة فقط بدون حفظ دائم
+            // سيظهر الـ onboarding مجدداً في الجلسة القادمة حتى يُكمل المستخدم الإعداد
+            if (!settings || typeof settings !== 'object') {
+                settings = window.settings = safeLS.getJSON('appSettings', {}) || {};
+            }
+            settings.notifications = onboardingData.notifications;
+            settings.autoUpdate    = onboardingData.autoUpdate;
+            settings.theme         = onboardingData.darkMode ? 'dark' : 'light';
+            safeLS.setJSON('appSettings', settings);
+            document.body.setAttribute('data-theme', settings.theme);
+            var onboardingEl = document.getElementById('onboarding');
+            if (onboardingEl) onboardingEl.classList.add('hidden');
+            initApp();
         }
 
         function finishOnboarding() {
+
+            // حماية: تأكد من وجود settings قبل الكتابة عليه
+            if (!settings || typeof settings !== 'object') {
+                settings = window.settings = safeLS.getJSON('appSettings', {}) || {};
+            }
 
             if (onboardingData.mainCity) {
                 currentCity = window.currentCity = onboardingData.mainCity;
@@ -6945,16 +7164,18 @@
             }
 
             settings.notifications = onboardingData.notifications;
-            settings.autoUpdate = onboardingData.autoUpdate;
-            settings.theme = onboardingData.darkMode ? 'dark' : 'light';
+            settings.autoUpdate    = onboardingData.autoUpdate;
+            settings.theme         = onboardingData.darkMode ? 'dark' : 'light';
 
-            localStorage.setItem('appSettings', JSON.stringify(settings));
-            try { window.scheduleSync?.(); } catch(e) {}
-            localStorage.setItem('onboardingComplete', 'true');
+            safeLS.setJSON('appSettings', settings);
+            try { window.scheduleSync?.(); } catch(e){ /* swallowed */ }
+            // يُحفظ onboardingComplete فقط عند الإنهاء الكامل (ليس التخطي)
+            safeLS.set('onboardingComplete', 'true');
 
             document.body.setAttribute('data-theme', settings.theme);
 
-            document.getElementById('onboarding').classList.add('hidden');
+            var onboardingEl = document.getElementById('onboarding');
+            if (onboardingEl) onboardingEl.classList.add('hidden');
             initApp();
         }
 
@@ -6983,7 +7204,7 @@
 
             _waitFirebase(function() {
 
-                const lastTs = parseInt(localStorage.getItem('weather_ts_' + currentCity) || '0');
+                const lastTs = parseInt(safeLS.get('weather_ts_' + currentCity, '0'));
                 const stale  = !lastTs || (Date.now() - lastTs) >= AUTO_REFRESH_MS;
                 loadWeather(stale);
                 loadAllMainCitiesWeather();
@@ -7000,9 +7221,9 @@
                 if (!city) continue;
 
                 try {
-                    const cachedTime = localStorage.getItem(`weather_ts_${cityKey}`);
+                    const cachedTime = safeLS.get(`weather_ts_${cityKey}`);
                     if (cachedTime && (Date.now() - parseInt(cachedTime)) < CACHE_MS) continue;
-                } catch(e) {}
+                } catch(e){ /* swallowed */ }
                 try {
                     const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&timezone=Africa%2FKhartoum`
                         + `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,precipitation,visibility,dew_point_2m,is_day`
@@ -7027,13 +7248,13 @@
                         try {
                             const aqiJson = await aqiRes.value.json();
                             if (aqiJson?.current) {
-                                localStorage.setItem('aqi_' + cityKey, JSON.stringify(aqiJson.current));
+                                safeLS.setJSON('aqi_' + cityKey, aqiJson.current);
                             }
-                        } catch(e) {}
+                        } catch(e){ /* swallowed */ }
                     }
 
-                    localStorage.setItem(`weather_${cityKey}`, JSON.stringify(data));
-                    localStorage.setItem(`weather_ts_${cityKey}`, Date.now().toString());
+                    safeLS.setJSON(`weather_${cityKey}`, data);
+                    safeLS.set(`weather_ts_${cityKey}`, Date.now().toString());
 
                     try {
                         const cw = data.current_weather || {};
@@ -7047,9 +7268,9 @@
                             rain24: (hr.precipitation_probability || []).slice(0,24),
                             wind24: (hr.wind_speed_10m || hr.windspeed_10m || []).slice(0,24)
                         };
-                        localStorage.setItem(`weather_mini_${cityKey}`, JSON.stringify(mini));
-                    } catch(e) {}
-                } catch (e) {}
+                        safeLS.setJSON(`weather_mini_${cityKey}`, mini);
+                    } catch(e){ /* swallowed */ }
+                } catch(e){ /* swallowed */ }
             }
             updateChart();
             updateFavList();
@@ -7067,7 +7288,7 @@
                     mainCities = window.mainCities = [currentCity];
                     settings.mainCities = mainCities;
                     settings.citiesManuallySet = true;
-                    localStorage.setItem('appSettings', JSON.stringify(settings));
+                    safeLS.setJSON('appSettings', settings);
                 } else {
                     mainCities = window.mainCities = settings.mainCities;
                 }
@@ -7100,7 +7321,7 @@
 
             {
                 const _isOn = settings.windAlerts !== false
-                    && localStorage.getItem('windAlerts') !== 'off';
+                    && safeLS.get('windAlerts') !== 'off';
                 settings.windAlerts = _isOn;
                 window._windAlertsEnabled = _isOn;
                 const _t = document.getElementById('toggleWindAlerts');
@@ -7111,7 +7332,7 @@
 
             {
                 const _isOn = settings.cumulusAlerts !== false
-                    && localStorage.getItem('cumulusAlerts') !== 'off';
+                    && safeLS.get('cumulusAlerts') !== 'off';
                 settings.cumulusAlerts = _isOn;
                 window._cumulusAlertsEnabled = _isOn;
                 const _t = document.getElementById('toggleCumulusAlerts');
@@ -7133,57 +7354,122 @@
             }
         }
 
-        function checkOnline() {
-            return new Promise((resolve) => {
+        /* ═══════════════════════════════════════════════
+           نظام الاتصال — مصدر واحد، debounce، لا تكرار
+           ═══════════════════════════════════════════════ */
+        var _netState       = null;   // null | 'offline' | 'online'
+        var _netDebounce    = null;
+        var _restoredTimer  = null;
+        var _retryLock      = false;
 
+        function _setOfflineBar(isOnline) {
+            var bar    = document.getElementById('offlineBar');
+            var inner  = document.getElementById('offlineBarInner');
+            var icon   = document.getElementById('offlineBarIcon');
+            var ico    = document.getElementById('offlineBarIco');
+            var title  = document.getElementById('offlineBarTitle');
+            var sub    = document.getElementById('offlineBarSub');
+            var retryBtn = document.getElementById('offlineBarRetry');
+            if (!bar) return;
+
+            if (isOnline) {
+                if (_netState === 'offline') {
+                    // ← كان offline وعاد الاتصال: اعرض رسالة "تم الاستعادة" لثانيتين ثم أخفِ
+                    if (inner)  inner.classList.add('online-restored');
+                    if (ico)    { ico.className = 'fas fa-wifi'; }
+                    if (icon)   icon.classList.remove('pulsing');
+                    if (title)  title.textContent = 'تم استعادة الاتصال';
+                    if (sub)    sub.textContent   = 'جاري مزامنة البيانات...';
+                    if (retryBtn) retryBtn.style.display = 'none';
+                    bar.classList.add('show');
+                    clearTimeout(_restoredTimer);
+                    _restoredTimer = setTimeout(function() {
+                        bar.classList.remove('show');
+                        setTimeout(function() {
+                            if (inner)  inner.classList.remove('online-restored');
+                            if (ico)    ico.className = 'fas fa-wifi-slash';
+                            if (icon)   icon.classList.add('pulsing');
+                            if (title)  title.textContent = 'وضع عدم الاتصال';
+                            if (sub)    sub.textContent   = 'يتم عرض آخر البيانات المحفوظة';
+                            if (retryBtn) retryBtn.style.display = '';
+                        }, 400);
+                    }, 2200);
+                    // أعد تحميل الطقس عند استعادة الاتصال
+                    if (isAutoUpdateOn && isAutoUpdateOn() && typeof loadWeather === 'function') {
+                        setTimeout(function() { loadWeather(true); }, 600);
+                    }
+                } else {
+                    // كان online من البداية، لا تُظهر أي شيء
+                    bar.classList.remove('show');
+                }
+                _netState = 'online';
+            } else {
+                // offline
+                if (_netState === 'offline') return; // لا تعيد الإظهار
+                _netState = 'offline';
+                if (inner)  inner.classList.remove('online-restored');
+                if (ico)    ico.className = 'fas fa-wifi-slash';
+                if (icon)   icon.classList.add('pulsing');
+                if (title)  title.textContent = 'وضع عدم الاتصال';
+                if (sub)    sub.textContent   = 'يتم عرض آخر البيانات المحفوظة';
+                if (retryBtn) retryBtn.style.display = '';
+                clearTimeout(_restoredTimer);
+                bar.classList.add('show');
+            }
+        }
+
+        function _debouncedNetCheck(isOnline) {
+            clearTimeout(_netDebounce);
+            _netDebounce = setTimeout(function() { _setOfflineBar(isOnline); }, 400);
+        }
+
+        function checkOnline() {
+            return new Promise(function(resolve) {
                 if (!navigator.onLine) {
-                    document.getElementById('offlineBar').classList.add('show');
+                    _debouncedNetCheck(false);
                     resolve(false);
                     return;
                 }
-
-                const controller = new AbortController();
-                const timer = setTimeout(() => {
-                    controller.abort();
-                    document.getElementById('offlineBar').classList.add('show');
-                    resolve(false);
-                }, 4000);
-
-                fetch('https://www.google.com/generate_204', {
-                    method: 'HEAD',
-                    mode: 'no-cors',
-                    signal: controller.signal,
-                    cache: 'no-store'
-                })
-                .then(() => {
-                    clearTimeout(timer);
-                    document.getElementById('offlineBar').classList.remove('show');
-                    resolve(true);
-                })
-                .catch(() => {
-                    clearTimeout(timer);
-
-                    if (navigator.onLine) {
-                        document.getElementById('offlineBar').classList.remove('show');
-                        resolve(true);
-                    } else {
-                        document.getElementById('offlineBar').classList.add('show');
-                        resolve(false);
-                    }
-                });
+                // المتصفح يقول online — نثق به مباشرة (CSP مضاف لـ google.com)
+                _debouncedNetCheck(true);
+                resolve(true);
             });
         }
 
-        window.addEventListener('online', () => {
-            document.getElementById('offlineBar')?.classList.remove('show');
-            if (isAutoUpdateOn()) {
-                loadWeather(true);
-                refreshWeatherData();
-            }
-        });
-        window.addEventListener('offline', () => {
-            document.getElementById('offlineBar').classList.add('show');
-        });
+        window._retryConnection = function() {
+            if (_retryLock) return;
+            _retryLock = true;
+            var retryBtn = document.getElementById('offlineBarRetry');
+            var sub      = document.getElementById('offlineBarSub');
+            if (retryBtn) { retryBtn.disabled = true; retryBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الفحص...'; }
+            if (sub)      sub.textContent = 'يتم فحص الاتصال...';
+
+            var controller = new AbortController();
+            var timer = setTimeout(function() { controller.abort(); }, 5000);
+
+            fetch('https://www.google.com/generate_204', {
+                method: 'HEAD', mode: 'no-cors',
+                signal: controller.signal, cache: 'no-store'
+            }).then(function() {
+                clearTimeout(timer);
+                _setOfflineBar(true);
+                if (navigator.onLine && typeof loadWeather === 'function') loadWeather(true);
+            }).catch(function() {
+                clearTimeout(timer);
+                _setOfflineBar(navigator.onLine);
+                if (!navigator.onLine) {
+                    var s = document.getElementById('offlineBarSub');
+                    if (s) s.textContent = 'لا يزال غير متصل — حاول لاحقاً';
+                }
+            }).finally(function() {
+                _retryLock = false;
+                var rb = document.getElementById('offlineBarRetry');
+                if (rb) { rb.disabled = false; rb.innerHTML = '<i class="fas fa-redo-alt"></i> إعادة المحاولة'; }
+            });
+        };
+
+        window.addEventListener('online',  function() { _debouncedNetCheck(true); });
+        window.addEventListener('offline', function() { _debouncedNetCheck(false); });
 
         var _citySearchBound = false;
         function renderCitySelector() {
@@ -7211,7 +7497,7 @@
         function changeCity(city) {
 
             if (window._weatherAbortCtrl) {
-                try { window._weatherAbortCtrl.abort(); } catch(_) {}
+                try { window._weatherAbortCtrl.abort(); } catch(_){ /* swallowed */ }
             }
             window._weatherAbortCtrl = new AbortController();
             currentCity = window.currentCity = city;
@@ -7224,7 +7510,7 @@
                 _forceSubSync(_csUid).catch(() => {});
             }
             try {
-                const _aqiImmediate = localStorage.getItem('aqi_' + city);
+                const _aqiImmediate = safeLS.get('aqi_' + city);
                 if (_aqiImmediate) {
                     const _aqiParsed = JSON.parse(_aqiImmediate);
                     if (typeof weatherData !== 'undefined' && weatherData) {
@@ -7232,7 +7518,7 @@
                     }
                     updateAirQuality(_aqiParsed, city);
                 }
-            } catch(e) {}
+            } catch(e){ /* swallowed */ }
             loadWeather();
         }
 
@@ -7332,7 +7618,7 @@
 
         function wxLocalRead(gridKey) {
             try {
-                var raw = localStorage.getItem(WX_LS_PREFIX + gridKey);
+                var raw = safeLS.get(WX_LS_PREFIX + gridKey);
                 if (!raw) return null;
                 var obj = JSON.parse(raw);
                 if (!obj || !obj.fetchedAt) return null;
@@ -7343,7 +7629,7 @@
 
         function wxLocalReadStale(gridKey) {
             try {
-                var raw = localStorage.getItem(WX_LS_PREFIX + gridKey);
+                var raw = safeLS.get(WX_LS_PREFIX + gridKey);
                 if (!raw) return null;
                 var obj = JSON.parse(raw);
                 return (obj && obj.fetchedAt) ? obj : null;
@@ -7352,7 +7638,7 @@
 
         function _safeLsSet(key, value) {
             try {
-                localStorage.setItem(key, value);
+                safeLS.set(key, value);
             } catch(e) {
                 if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
 
@@ -7362,10 +7648,10 @@
                         });
 
                         keys.slice(0, Math.ceil(keys.length / 2)).forEach(function(k) {
-                            localStorage.removeItem(k);
+                            safeLS.remove(k);
                         });
-                        localStorage.setItem(key, value);
-                    } catch(e2) {  }
+                        safeLS.set(key, value);
+                    } catch(e2){ /* swallowed */ }
                 }
             }
         }
@@ -7387,12 +7673,12 @@
                     data:      toSave
                 }));
 
-                localStorage.setItem('weather_' + currentCity, JSON.stringify(toSave));
-                localStorage.setItem('weather_ts_' + currentCity, fetchedAt.toString());
-                localStorage.setItem('lastUpdate', new Intl.DateTimeFormat('ar-SD', {
+                safeLS.setJSON('weather_' + currentCity, toSave);
+                safeLS.set('weather_ts_' + currentCity, fetchedAt.toString());
+                safeLS.set('lastUpdate', new Intl.DateTimeFormat('ar-SD', {
                     timeZone: 'Africa/Khartoum', hour: '2-digit', minute: '2-digit'
                 }).format(new Date(fetchedAt)));
-            } catch(e) {}
+            } catch(e){ /* swallowed */ }
         }
 
         var _wxFsMemCache = {};
@@ -7444,7 +7730,7 @@
                         : (typeof existData.fetchedAt === 'number' ? existData.fetchedAt : 0);
                     if (Date.now() - existMs < 5 * 60 * 1000) return;
                 }
-            } catch(e) {  }
+            } catch(e){ /* swallowed */ }
 
             _wxFsInFlight[gridKey] = true;
             try {
@@ -7531,7 +7817,7 @@
                 var _db = window._fbDB;
                 if (!_db) return;
                 await deleteDoc(doc(_db, WX_LOCK_COL, gridKey));
-            } catch(e) {}
+            } catch(e){ /* swallowed */ }
         }
 
         function _wxApplyData(primary, aqi, aqiH, fetchedMs) {
@@ -7561,13 +7847,13 @@
             if (!navigator.onLine) {
                 const stale = wxLocalReadStale(gridKey)
                            || { data: safeLocalStorageGet('weather_' + currentCity, null),
-                                fetchedAt: parseInt(localStorage.getItem('weather_ts_' + currentCity) || '0') };
+                                fetchedAt: parseInt(safeLS.get('weather_ts_' + currentCity, '0')) };
                 if (stale && stale.data) {
                     weatherData = normalizeWeatherData(stale.data);
                     try {
-                        const _ca = localStorage.getItem('aqi_' + currentCity);
+                        const _ca = safeLS.get('aqi_' + currentCity);
                         if (_ca) weatherData.airQuality = JSON.parse(_ca);
-                    } catch(e) {}
+                    } catch(e){ /* swallowed */ }
 
                     physSeedHistoryFromCache(currentCity);
                     updateUI();
@@ -7584,11 +7870,11 @@
                 if (local && local.data) {
                     weatherData = normalizeWeatherData(local.data);
                     try {
-                        const _ca = localStorage.getItem('aqi_' + currentCity);
+                        const _ca = safeLS.get('aqi_' + currentCity);
                         if (_ca) weatherData.airQuality = JSON.parse(_ca);
-                        const _ch = localStorage.getItem('aqiH_' + currentCity);
+                        const _ch = safeLS.get('aqiH_' + currentCity);
                         if (_ch) weatherData.airQualityHourly = JSON.parse(_ch);
-                    } catch(e) {}
+                    } catch(e){ /* swallowed */ }
                     updateUI();
                     checkAlert();
                     updateFavList();
@@ -7607,9 +7893,7 @@
                         document.getElementById('loader').classList.add('hidden');
                         return;
                     }
-                } catch(fsErr) {
-
-                }
+                } catch(fsErr){ /* swallowed */ }
             }
 
             var _gotFetchLock = await wxClaimFetchLock(gridKey);
@@ -7625,7 +7909,7 @@
                         document.getElementById('loader').classList.add('hidden');
                         return;
                     }
-                } catch(_fwErr) {}
+                } catch(_fwErr){ /* swallowed */ }
 
                 await wxClaimFetchLock(gridKey);
             }
@@ -7700,7 +7984,7 @@
                                 aqiHourly = _d.hourly || null;
                             }
                         }
-                    } catch(e) {}
+                    } catch(e){ /* swallowed */ }
                 }
 
                 if (!weatherData) {
@@ -7712,7 +7996,7 @@
                             + `&wind_speed_unit=kmh&precipitation_unit=mm&timezone=Africa/Khartoum&forecast_days=14&forecast_hours=336&models=best_match`;
                         const fbRes = await fetch(fallbackUrl, { signal: makeTimeout(12000) });
                         if (fbRes.ok) weatherData = await fbRes.json();
-                    } catch(e) {}
+                    } catch(e){ /* swallowed */ }
                 }
                 if (!weatherData) throw new Error('No weather data');
 
@@ -7741,9 +8025,9 @@
                 if (stale && stale.data) {
                     weatherData = normalizeWeatherData(stale.data);
                     try {
-                        const _ca = localStorage.getItem('aqi_' + currentCity);
+                        const _ca = safeLS.get('aqi_' + currentCity);
                         if (_ca) weatherData.airQuality = JSON.parse(_ca);
-                    } catch(e) {}
+                    } catch(e){ /* swallowed */ }
                     updateUI();
                     _showStaleBanner();
                 } else {
@@ -7756,7 +8040,7 @@
 
         function _wxLog(level, fn, msg, val) {
             try {
-                var logs = JSON.parse(localStorage.getItem('_wxLogs') || '[]');
+                var logs = JSON.parse(safeLS.get('_wxLogs') || '[]');
                 var entry = {
                     t:   new Date().toISOString(),
                     lvl: level,
@@ -7767,8 +8051,8 @@
                 logs.push(entry);
 
                 if (logs.length > 300) logs = logs.slice(-300);
-                localStorage.setItem('_wxLogs', JSON.stringify(logs));
-            } catch(e) {  }
+                safeLS.setJSON('_wxLogs', logs);
+            } catch(e){ /* swallowed */ }
         }
 
         function _safeVal(raw, fallback, min, max, ctx) {
@@ -7789,8 +8073,8 @@
             return n;
         }
 
-        window._wxLogs   = function() { try { return JSON.parse(localStorage.getItem('_wxLogs')||'[]'); } catch(e){return[];} };
-        window._wxLogsClear = function() { localStorage.removeItem('_wxLogs'); return []; };
+        window._wxLogs   = function() { try { return JSON.parse(safeLS.get('_wxLogs')||'[]'); } catch(e){return[];} };
+        window._wxLogsClear = function() { safeLS.remove('_wxLogs'); return []; };
 
         const PHYS_HISTORY_KEY  = 'phys_readings_v1';
         const PHYS_HISTORY_MAX  = 6;
@@ -7806,7 +8090,7 @@
             windGusts = _safeVal(windGusts, windSpeed, 0, 400, 'physSave.windGusts');
             const key  = PHYS_HISTORY_KEY + '_' + cityKey;
             let arr    = [];
-            try { arr = JSON.parse(localStorage.getItem(key)) || []; } catch(e) {}
+            try { arr = safeLS.getJSON(key, null) || []; } catch(e){ /* swallowed */ }
             const now  = Date.now();
             if (arr.length && now - arr[arr.length-1].ts < PHYS_READ_INTERVAL) {
                 arr[arr.length-1] = { ts: arr[arr.length-1].ts, temp, pressure, windDir, humidity, windSpeed: windSpeed||0, windGusts: windGusts||0 };
@@ -7814,12 +8098,12 @@
                 arr.push({ ts: now, temp, pressure, windDir, humidity, windSpeed: windSpeed||0, windGusts: windGusts||0 });
                 if (arr.length > PHYS_HISTORY_MAX) arr.shift();
             }
-            try { localStorage.setItem(key, JSON.stringify(arr)); } catch(e) {}
+            try { safeLS.set(key, JSON.stringify(arr)); } catch(e){ /* swallowed */ }
             return arr;
         }
 
         function physLoadHistory(cityKey) {
-            try { return JSON.parse(localStorage.getItem(PHYS_HISTORY_KEY + '_' + cityKey)) || []; }
+            try { return safeLS.getJSON(PHYS_HISTORY_KEY + '_' + cityKey, []); }
             catch(e) { return []; }
         }
 
@@ -7865,9 +8149,9 @@
                 });
 
                 if (seeded.length >= 2) {
-                    try { localStorage.setItem(PHYS_HISTORY_KEY + '_' + cityKey, JSON.stringify(seeded)); } catch(e) {}
+                    try { safeLS.setJSON(PHYS_HISTORY_KEY + '_' + cityKey, seeded); } catch(e){ /* swallowed */ }
                 }
-            } catch(e) {}
+            } catch(e){ /* swallowed */ }
         }
 
         function physWindSector(deg) {
@@ -8402,7 +8686,7 @@
                 daily.temperature_2m_min?.[0] ?? null, _iconMin, _mfMin, _gfsMin
             ) ?? daily.temperature_2m_min?.[0];
             document.getElementById('minTemp').textContent    = todayMin != null ? Math.round(todayMin) + '°' : '--°';
-            document.getElementById('updateTime').textContent = localStorage.getItem('lastUpdate') || '--';
+            document.getElementById('updateTime').textContent = safeLS.get('lastUpdate') || '--';
 
             const feelsEl = document.getElementById('feelsLikeValue');
             if (feelsEl) feelsEl.textContent = Math.round(appTemp) + '°';
@@ -8414,9 +8698,9 @@
 
             if (!weatherData.airQuality) {
                 try {
-                    const _aqiRaw = localStorage.getItem('aqi_' + currentCity);
+                    const _aqiRaw = safeLS.get('aqi_' + currentCity);
                     if (_aqiRaw) weatherData.airQuality = JSON.parse(_aqiRaw);
-                } catch(e) {}
+                } catch(e){ /* swallowed */ }
             }
             updateAirQuality(weatherData.airQuality, currentCity);
             updateAtmosphericAnalysis(weatherData);
@@ -8666,9 +8950,9 @@
 
             if (!aqi) {
                 try {
-                    const _cached = localStorage.getItem('aqi_' + _city);
+                    const _cached = safeLS.get('aqi_' + _city);
                     if (_cached) aqi = JSON.parse(_cached);
-                } catch(e) {}
+                } catch(e){ /* swallowed */ }
             }
 
             if (!aqi) {
@@ -9253,12 +9537,12 @@
             mainCities.forEach((key, i) => {
                 try {
 
-                    const ts = localStorage.getItem(`weather_ts_${key}`) || '0';
+                    const ts = safeLS.get(`weather_ts_${key}`) || '0';
                     let mini;
                     if (_chartDataCache[key] && _chartDataCache[key].ts === ts) {
                         mini = _chartDataCache[key].data;
                     } else {
-                        const raw = localStorage.getItem(`weather_mini_${key}`);
+                        const raw = safeLS.get(`weather_mini_${key}`);
                         if (!raw) {
 
                             const full = safeLocalStorageGet(`weather_${key}`, null);
@@ -9275,7 +9559,7 @@
                                 rain24: (hr.precipitation_probability || []).slice(0,24),
                                 wind24: (hr.wind_speed_10m || hr.windspeed_10m || []).slice(0,24)
                             };
-                            localStorage.setItem(`weather_mini_${key}`, JSON.stringify(mini));
+                            safeLS.setJSON(`weather_mini_${key}`, mini);
                         } else {
                             mini = JSON.parse(raw);
                         }
@@ -9283,7 +9567,7 @@
                     }
                     const cityName = allCities[key]?.name || key;
                     cityDataArr.push({ key, name: cityName, mini, color: CITY_PALETTE[i % CITY_PALETTE.length] });
-                } catch(e) {}
+                } catch(e){ /* swallowed */ }
             });
 
             if (cityDataArr.length === 0) return;
@@ -9571,10 +9855,10 @@
                         `${alertIcon} ${alertLabel} ${maxRain}% في ${allCities[currentCity].name}`;
 
                     const _isPro = (typeof pwIsPro === 'function') && pwIsPro();
-                    const _lastRain = parseInt(localStorage.getItem('_lastRainNotif') || '0');
+                    const _lastRain = parseInt(safeLS.get('_lastRainNotif', '0'));
                     if (_isPro && 'Notification' in window && Notification.permission === 'granted'
                         && Date.now() - _lastRain > 60 * 60 * 1000) {
-                        localStorage.setItem('_lastRainNotif', Date.now());
+                        safeLS.set('_lastRainNotif', Date.now());
                         new Notification('طقس السودان - تنبيه مطر 🌧️', {
                             body: `فرصة أمطار في ${allCities[currentCity].name}: ${maxRain}%`,
                             icon: '/icons/icon-192.png',
@@ -9591,10 +9875,10 @@
                 const temp = cur.temperature_2m ?? cur.temperature ?? 0;
                 if (temp > 40) {
                     if ('Notification' in window && Notification.permission === 'granted') {
-                        const _lastTempNotif = parseInt(localStorage.getItem('_lastTempNotif') || '0');
+                        const _lastTempNotif = parseInt(safeLS.get('_lastTempNotif', '0'));
                         const _now = Date.now();
                         if (_now - _lastTempNotif > 60 * 60 * 1000) {
-                            localStorage.setItem('_lastTempNotif', _now);
+                            safeLS.set('_lastTempNotif', _now);
                             new Notification('طقس السودان - تحذير حرارة 🌡️', {
                                 body: `درجة الحرارة في ${allCities[currentCity].name} وصلت ${Math.round(temp)}°C — تجنب التعرض للشمس`,
                                 icon: '/icons/icon-192.png',
@@ -9610,10 +9894,10 @@
                 const wr = window._lastWindResult;
                 if (wr.dustTrigger === 'storm') {
                     if ('Notification' in window && Notification.permission === 'granted') {
-                        const _lastDustNotif = parseInt(localStorage.getItem('_lastDustNotif') || '0');
+                        const _lastDustNotif = parseInt(safeLS.get('_lastDustNotif', '0'));
                         const _now = Date.now();
                         if (_now - _lastDustNotif > 2 * 60 * 60 * 1000) {
-                            localStorage.setItem('_lastDustNotif', _now);
+                            safeLS.set('_lastDustNotif', _now);
                             new Notification('طقس السودان - تحذير غبار 🌪️', {
                                 body: `عاصفة ترابية محتملة في ${allCities[currentCity].name} — رؤية متوقعة: ${wr.estVisKm} كم`,
                                 icon: '/icons/icon-192.png',
@@ -9647,10 +9931,10 @@
                 btn.innerHTML = '<i class="fas fa-heart"></i>';
             }
 
-            localStorage.setItem('favCities', JSON.stringify(favorites));
+            safeLS.setJSON('favCities', favorites);
             updateFavBadge();
             updateFavList();
-            try { window.scheduleSync?.(); } catch(e) {}
+            try { window.scheduleSync?.(); } catch(e){ /* swallowed */ }
         }
 
         function updateFavBtn() {
@@ -9678,7 +9962,7 @@
 
             if (isAutoUpdateOn() && navigator.onLine) {
                 favorites.forEach(cityKey => {
-                    const ts = localStorage.getItem(`weather_ts_${cityKey}`);
+                    const ts = safeLS.get(`weather_ts_${cityKey}`);
                     const elapsed = ts ? Date.now() - parseInt(ts) : Infinity;
                     if (elapsed >= AUTO_REFRESH_MS) {
                         const city = allCities[cityKey];
@@ -9687,8 +9971,8 @@
                         fetch(url, { signal: makeTimeout(8000) }).then(r => r.ok ? r.json() : null).then(data => {
                             if (!data) return;
                             const norm = normalizeWeatherData(data);
-                            localStorage.setItem(`weather_${cityKey}`, JSON.stringify(norm));
-                            localStorage.setItem(`weather_ts_${cityKey}`, Date.now().toString());
+                            safeLS.setJSON(`weather_${cityKey}`, norm);
+                            safeLS.set(`weather_ts_${cityKey}`, Date.now().toString());
                             updateFavList();
                         }).catch(() => {});
                     }
@@ -9796,7 +10080,7 @@
             } else {
                 favAlerts.push(city);
             }
-            localStorage.setItem('favAlerts', JSON.stringify(favAlerts));
+            safeLS.setJSON('favAlerts', favAlerts);
             updateFavList();
         }
 
@@ -9813,10 +10097,10 @@
             const idx = favorites.indexOf(city);
             if (idx > -1) {
                 favorites.splice(idx, 1);
-                localStorage.setItem('favCities', JSON.stringify(favorites));
+                safeLS.setJSON('favCities', favorites);
                 updateFavBadge();
                 updateFavList();
-                try { window.scheduleSync?.(); } catch(e) {}
+                try { window.scheduleSync?.(); } catch(e){ /* swallowed */ }
                 updateFavBtn();
             }
         }
@@ -9848,8 +10132,8 @@
         function setTheme(theme) {
             document.body.setAttribute('data-theme', theme);
             settings.theme = theme;
-            localStorage.setItem('appSettings', JSON.stringify(settings));
-            try { window.scheduleSync?.(); } catch(e) {}
+            safeLS.setJSON('appSettings', settings);
+            try { window.scheduleSync?.(); } catch(e){ /* swallowed */ }
             updateThemeUI(theme);
             if (compareChart) updateChart();
 
@@ -9867,7 +10151,7 @@
                             _cur?.temperature_2m ?? _cur?.temperature ?? 30,
                             weatherData?.airQuality?.dust ?? 0
                         );
-                    } catch(e) {}
+                    } catch(e){ /* swallowed */ }
                 } else {
                     document.body.removeAttribute('data-wx');
                 }
@@ -9883,8 +10167,8 @@
         function setIconStyle(style) {
             iconStyle = style;
             settings.iconStyle = style;
-            localStorage.setItem('appSettings', JSON.stringify(settings));
-            try { window.scheduleSync?.(); } catch(e) {}
+            safeLS.setJSON('appSettings', settings);
+            try { window.scheduleSync?.(); } catch(e){ /* swallowed */ }
             updateIconStyleUI(style);
             loadWeather();
         }
@@ -9931,21 +10215,21 @@
 
             settings.mainCities = mainCities;
             settings.citiesManuallySet = true;
-            localStorage.setItem('appSettings', JSON.stringify(settings));
-            try { window.scheduleSync?.(); } catch(e) {}
+            safeLS.setJSON('appSettings', settings);
+            try { window.scheduleSync?.(); } catch(e){ /* swallowed */ }
             renderSettingsCities();
             renderCitySelector();
             if (typeof window.renderCmpCityRow === 'function') window.renderCmpCityRow();
 
             if (idx === -1) {
                 const _newCity = allCities[city];
-                if (_newCity && !localStorage.getItem('aqi_' + city)) {
+                if (_newCity && !safeLS.get('aqi_' + city)) {
                     const _aqiNewUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${_newCity.lat}&longitude=${_newCity.lon}`
                         + `&current=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone,sulphur_dioxide,dust,uv_index,us_aqi,european_aqi`
                         + `&timezone=Africa/Khartoum&forecast_days=1`;
                     fetch(_aqiNewUrl, { signal: makeTimeout(8000) })
                         .then(r => r.ok ? r.json() : null)
-                        .then(d => { if (d?.current) localStorage.setItem('aqi_' + city, JSON.stringify(d.current)); })
+                        .then(d => { if (d?.current) safeLS.setJSON('aqi_' + city, d.current); })
                         .catch(() => {});
                 }
             }
@@ -9957,7 +10241,7 @@
         function toggleSetting(el, setting) {
             el.classList.toggle('active');
             settings[setting] = el.classList.contains('active');
-            localStorage.setItem('appSettings', JSON.stringify(settings));
+            safeLS.setJSON('appSettings', settings);
 
             if (setting === 'rainAlerts') {
 
@@ -9976,7 +10260,7 @@
                 var _wt = document.getElementById('toggleWindAlerts');
                 if (_wb) _wb.textContent = window._windAlertsEnabled ? '🔔' : '🔕';
                 if (_wt) { _wt.classList.toggle('active', window._windAlertsEnabled); }
-                localStorage.setItem('windAlerts', window._windAlertsEnabled ? 'on' : 'off');
+                safeLS.set('windAlerts', window._windAlertsEnabled ? 'on' : 'off');
                 if (!window._windAlertsEnabled) {
                     _fadeRemoveAlert('smartDustStormAlert');
                     _fadeRemoveAlert('downburstAlert');
@@ -9989,7 +10273,7 @@
                 var _ct = document.getElementById('toggleCumulusAlerts');
                 if (_cb) _cb.textContent = window._cumulusAlertsEnabled ? '🔔' : '🔕';
                 if (_ct) { _ct.classList.toggle('active', window._cumulusAlertsEnabled); }
-                localStorage.setItem('cumulusAlerts', window._cumulusAlertsEnabled ? 'on' : 'off');
+                safeLS.set('cumulusAlerts', window._cumulusAlertsEnabled ? 'on' : 'off');
                 if (!window._cumulusAlertsEnabled) {
                     _fadeRemoveAlert('cbSmartCard_pre');
                     _fadeRemoveAlert('cbSmartCard_post');
@@ -10022,10 +10306,10 @@
                             _cur.temperature_2m ?? _cur.temperature ?? 30,
                             weatherData?.airQuality?.dust ?? 0
                         );
-                    } catch(e) {}
+                    } catch(e){ /* swallowed */ }
                 }
             }
-            try { window.scheduleSync?.(); } catch(e) {}
+            try { window.scheduleSync?.(); } catch(e){ /* swallowed */ }
         }
 
         if ('Notification' in window && Notification.permission === 'default') {
@@ -10125,7 +10409,7 @@
         function _groqLoadState() {
             const today = new Date().toDateString();
             return GROQ_KEYS.map((_, i) => {
-                const saved = (() => { try { return JSON.parse(localStorage.getItem(`groq_kstate_${i}`)||'null'); } catch(e){ return null; } })();
+                const saved = (() => { try { return safeLS.getJSON(`groq_kstate_${i}`, null); } catch(e){ return null; } })();
                 if (saved && saved.date === today) return saved;
 
                 return { status: 'ok', resetAt: 0, failCount: 0, todayReqs: 0, date: today };
@@ -10150,15 +10434,15 @@
                     resetDate: today,
                     updatedAt: Date.now()
                 }, true);
-            } catch(e) {  }
+            } catch(e){ /* swallowed */ }
         }
 
         function _groqSaveState(states) {
             states.forEach((s, i) => {
-                try { localStorage.setItem(`groq_kstate_${i}`, JSON.stringify(s)); } catch(e) {}
+                try { safeLS.setJSON(`groq_kstate_${i}`, s); } catch(e){ /* swallowed */ }
             });
 
-            try { window.scheduleSync?.(2000); } catch(e) {}
+            try { window.scheduleSync?.(2000); } catch(e){ /* swallowed */ }
 
             _pushGroqStatusToFirebase(states);
         }
@@ -10317,7 +10601,7 @@
             try {
                 const geminiReply = await callGeminiAI(messages, systemPrompt);
                 if (geminiReply) return geminiReply;
-            } catch(ge) {}
+            } catch(ge){ /* swallowed */ }
 
             if (_retryDepth === 0) {
                 const limitedKeys = groqKeyStates.filter(s => s.status === 'limited');
@@ -10443,9 +10727,9 @@
             try {
                 const raw = typeof safeLocalStorageGet === 'function'
                     ? safeLocalStorageGet('weather_' + currentCity, null)
-                    : JSON.parse(localStorage.getItem('weather_' + currentCity) || 'null');
+                    : safeLS.getJSON('weather_' + currentCity, null);
                 if (raw) wd = (typeof normalizeWeatherData === 'function') ? normalizeWeatherData(raw) : raw;
-            } catch(e) {}
+            } catch(e){ /* swallowed */ }
 
             const footer = '\n\n---\n*📡 ردّ محلي من الكاش — سيعود المساعد تلقائياً قريباً.*';
 
@@ -10478,7 +10762,7 @@
                            '- الحالة: ' + desc + '\n' +
                            '- الرياح: ' + wind + ' كم/س | الرطوبة: ' + humid + '%\n' +
                            '- احتمال المطر: ' + rain + '%' + footer;
-                } catch(e) {}
+                } catch(e){ /* swallowed */ }
             }
 
             return '⚠️ **جميع خوادم الذكاء الاصطناعي مشغولة مؤقتاً.**\n\n🔄 سيُعاد تفعيل المفاتيح تلقائياً — حاول مرة أخرى بعد دقيقتين.\n\n💡 *يمكنك الاطلاع على بيانات الطقس المباشرة في الصفحة الرئيسية.*';
@@ -10518,7 +10802,7 @@
                 const _uid   = window._firebaseUser?.uid || 'local_user';
                 const _today = new Date().toDateString();
                 const _fkey  = 'ai_free_' + _uid + '_' + _today;
-                const _fUsed = parseInt(localStorage.getItem(_fkey) || '0');
+                const _fUsed = parseInt(safeLS.get(_fkey, '0'));
 
                 window._aiLimitsCache = {
                     requestUsed:  _fUsed,
@@ -10714,11 +10998,11 @@
                 const firebaseUser = window._firebaseUser;
                 let userName = '';
                 if (firebaseUser) {
-                    userName = firebaseUser.displayName || localStorage.getItem('userName') || '';
+                    userName = firebaseUser.displayName || safeLS.get('userName', '');
                 }
-                if (!userName) userName = localStorage.getItem('userName') || '';
+                if (!userName) userName = safeLS.get('userName', '');
                 const nameGreet = userName
-                    ? `<div style="font-size:1.05rem;font-weight:800;background:linear-gradient(135deg,#f59e0b,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;">مرحباً ${userName}! أنا المساعد الجوي 🌤️</div>`
+                    ? `<div style="font-size:1.05rem;font-weight:800;background:linear-gradient(135deg,#f59e0b,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;">مرحباً <span id="_aiGreetName"></span>! أنا المساعد الجوي 🌤️</div>`
                     : `<div style="font-size:1.05rem;font-weight:800;background:linear-gradient(135deg,#f59e0b,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;">مرحباً! أنا المساعد الجوي 🌤️</div>`;
                 welcomeMsg.innerHTML = `
                     ${nameGreet}
@@ -10730,6 +11014,11 @@
                         <li style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid var(--border-color);">❤️ <span>إدارة قائمة مدنك المفضلة</span></li>
                     </ul>
                     <div style="margin-top:12px;padding:10px 14px;background:rgba(245,158,11,0.1);border-radius:10px;border-right:3px solid var(--accent);font-weight:600;">كيف يمكنني مساعدتك اليوم؟ 👇</div>`;
+                // ← XSS Fix: set userName safely via textContent (not innerHTML)
+                if (userName) {
+                    const greetNameEl = welcomeMsg.querySelector('#_aiGreetName');
+                    if (greetNameEl) greetNameEl.textContent = userName;
+                }
             }
 
             const suggestions = [
@@ -10741,12 +11030,20 @@
                 `اعرض مدني المفضلة`
             ];
 
-            const html = suggestions.map(s =>
-                `<button class="suggestion-btn" onclick="sendSuggestion('${s.replace(/'/g,"'")}')">${s}</button>`
-            ).join('');
-
+            // XSS Fix: استخدام data-suggestion بدل onclick inline مع نص غير آمن
             const bottom = document.getElementById('aiSuggestionsBottom');
-            if (bottom) bottom.innerHTML = html;
+            if (bottom) {
+                bottom.innerHTML = '';
+                suggestions.forEach(function(s) {
+                    var btn = document.createElement('button');
+                    btn.className = 'suggestion-btn';
+                    btn.textContent = s;
+                    btn.addEventListener('click', function() {
+                        if (typeof sendSuggestion === 'function') sendSuggestion(s);
+                    });
+                    bottom.appendChild(btn);
+                });
+            }
         }
 
         function sendSuggestion(text) {
@@ -10846,7 +11143,12 @@
         }
 
         function parseMarkdown(text) {
-            const escHtml = s => s.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>');
+            const escHtml = s => String(s)
+                .replace(/&/g,'&amp;')
+                .replace(/</g,'&lt;')
+                .replace(/>/g,'&gt;')
+                .replace(/"/g,'&quot;')
+                .replace(/'/g,'&#39;');
 
             const codeBlocks = [];
             text = text.replace(/```([\s\S]*?)```/g, (_, code) => {
@@ -10854,7 +11156,7 @@
                 codeBlocks.push(`<pre style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px;overflow-x:auto;font-size:0.85rem;margin:8px 0;direction:ltr;text-align:left;"><code style="font-family:monospace;">${escHtml(code.trim())}</code></pre>`);
                 return `%%CODE_BLOCK_${idx}%%`;
             });
-            text = text.replace(/`([^`]+)`/g, '<code style="background:rgba(245,158,11,0.2);color:var(--accent);padding:2px 6px;border-radius:5px;font-size:0.9em;">$1</code>');
+            text = text.replace(/`([^`]+)`/g, (_, code) => '<code style="background:rgba(245,158,11,0.2);color:var(--accent);padding:2px 6px;border-radius:5px;font-size:0.9em;">' + escHtml(code) + '</code>');
 
             text = text.replace(/((?:^\|[^\n]+\n?)+)/gm, (tableBlock) => {
                 const rawRows = tableBlock.trim().split('\n').filter(r => r.trim());
@@ -10865,11 +11167,11 @@
                 if (!headers.length) return tableBlock;
                 const dataRows = rawRows.slice(1).filter(r => !isSep(r)).map(parseRow);
 
-                const thHtml = headers.map(h => `<th class="wxtbl-th">${h}</th>`).join('');
+                const thHtml = headers.map(h => `<th class="wxtbl-th">${escHtml(h)}</th>`).join('');
 
                 const trHtml = dataRows.map((cells, ri) => {
                     const cls = ri % 2 === 0 ? 'wxtbl-even' : 'wxtbl-odd';
-                    return `<tr class="${cls}">${cells.map((c,ci)=>`<td class="wxtbl-td${ci===0?' wxtbl-td-first':''}">${c}</td>`).join('')}</tr>`;
+                    return `<tr class="${cls}">${cells.map((c,ci)=>`<td class="wxtbl-td${ci===0?' wxtbl-td-first':''}">${escHtml(c)}</td>`).join('')}</tr>`;
                 }).join('');
 
                 const tblId = 'wxtbl-' + Math.random().toString(36).slice(2,7);
@@ -10968,7 +11270,7 @@
                 if (text.includes(city.name) && (text.includes('أضف') || text.includes('اضف'))) {
                     if (!favorites.includes(key)) {
                         favorites.push(key);
-                        localStorage.setItem('favCities', JSON.stringify(favorites));
+                        safeLS.setJSON('favCities', favorites);
                         updateFavBadge();
                         if (window.saveToFirebase) window.saveToFirebase();
                     }
@@ -10978,7 +11280,7 @@
                     const idx = favorites.indexOf(key);
                     if (idx > -1) {
                         favorites.splice(idx, 1);
-                        localStorage.setItem('favCities', JSON.stringify(favorites));
+                        safeLS.setJSON('favCities', favorites);
                         updateFavBadge();
                         if (window.saveToFirebase) window.saveToFirebase();
                     }
@@ -11145,7 +11447,7 @@
                 }
 
                 const firebaseUser = window._firebaseUser;
-                let userName = firebaseUser?.displayName || localStorage.getItem('userName') || '';
+                let userName = firebaseUser?.displayName || safeLS.get('userName', '');
                 const userNameLine = userName
                     ? `اسم المستخدم: **${userName}**. خاطبه باسمه دائماً بأسلوب مهذّب.`
                     : `المستخدم لم يُعرِّف عن نفسه، خاطبه بـ"عزيزي" أو باسم محايد مناسب.`;
@@ -11167,7 +11469,7 @@
                             const wind = cur.windspeed;
                             const wDesc = (weatherCodes[cur.weathercode] || weatherCodes[0]).desc;
                             fullWeatherContext += `\n| ${city.name} (${city.region}) | ${Math.round(cur.temperature)}°م | ${wDesc} | رياح ${wind} كم/س | رطوبة ${humidity}% | ضغط ${pressure} hPa | مطر أسبوعي ${maxRain7d}% | أيام مطر ${rainDays} |`;
-                        } catch(e) {}
+                        } catch(e){ /* swallowed */ }
                     }
                 }
 
@@ -11214,7 +11516,7 @@
 ## رادار الأمطار
 - حالة الرادار الحي: ${rvStatus}
 - أعلى احتمال مطر 24س: ${h.precipitation_probability?.length ? Math.max(...h.precipitation_probability.slice(0, 24)) : 0}%`;
-                    } catch(e) {}
+                    } catch(e){ /* swallowed */ }
                 }
 
                 const systemPrompt = `أنت "المساعد الجوي" 🌤️، المساعد الذكي لتطبيق **طقس السودان**، طوّرك المهندس **علي القاسم**.
@@ -11433,7 +11735,7 @@ window.setTheme('light')
             aiChatHistory = [];
             const chat = document.getElementById('aiChat');
             const firebaseUser = window._firebaseUser;
-            let userName = firebaseUser?.displayName || localStorage.getItem('userName') || '';
+            let userName = firebaseUser?.displayName || safeLS.get('userName', '');
             const nameGreet = userName
                 ? `<div style="font-size:1.05rem;font-weight:800;background:linear-gradient(135deg,#f59e0b,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;">${userName}، المساعد الجوي جاهز من جديد! 🌤️</div>`
                 : `<div style="font-size:1.05rem;font-weight:800;background:linear-gradient(135deg,#f59e0b,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;">المساعد الجوي جاهز من جديد! 🌤️</div>`;
@@ -11484,10 +11786,10 @@ window.setTheme('light')
             if (!allCities[cityKey]) return;
             if (!favorites.includes(cityKey)) {
                 favorites.push(cityKey);
-                localStorage.setItem('favCities', JSON.stringify(favorites));
+                safeLS.setJSON('favCities', favorites);
                 updateFavBadge();
                 updateFavList();
-                try { window.scheduleSync?.(); } catch(e) {}
+                try { window.scheduleSync?.(); } catch(e){ /* swallowed */ }
                 if (window.saveToFirebase) window.saveToFirebase();
             }
         };
@@ -11496,18 +11798,18 @@ window.setTheme('light')
             const idx = favorites.indexOf(cityKey);
             if (idx > -1) {
                 favorites.splice(idx, 1);
-                localStorage.setItem('favCities', JSON.stringify(favorites));
+                safeLS.setJSON('favCities', favorites);
                 updateFavBadge();
                 updateFavList();
-                try { window.scheduleSync?.(); } catch(e) {}
+                try { window.scheduleSync?.(); } catch(e){ /* swallowed */ }
                 if (window.saveToFirebase) window.saveToFirebase();
             }
         };
 
         window.toggleSettingByName = function(name, value) {
             settings[name] = value;
-            localStorage.setItem('appSettings', JSON.stringify(settings));
-            try { window.scheduleSync?.(); } catch(e) {}
+            safeLS.setJSON('appSettings', settings);
+            try { window.scheduleSync?.(); } catch(e){ /* swallowed */ }
 
             const toggleMap = {
                 rainAlerts:     'toggleRain',
@@ -11526,13 +11828,13 @@ window.setTheme('light')
 
             if (name === 'windAlerts') {
                 window._windAlertsEnabled = value;
-                localStorage.setItem('windAlerts', value ? 'on' : 'off');
+                safeLS.set('windAlerts', value ? 'on' : 'off');
                 const btn = document.getElementById('windForecastToggleBtn');
                 if (btn) btn.textContent = value ? '🔔' : '🔕';
             }
             if (name === 'cumulusAlerts') {
                 window._cumulusAlertsEnabled = value;
-                localStorage.setItem('cumulusAlerts', value ? 'on' : 'off');
+                safeLS.set('cumulusAlerts', value ? 'on' : 'off');
                 const btn = document.getElementById('cumulusAlertsToggleBtn');
                 if (btn) btn.textContent = value ? '🔔' : '🔕';
             }
@@ -11870,8 +12172,8 @@ window.setTheme('light')
         let _pwPollInterval = null;
         let _pwCountdown = null;
 
-        function pwGet(k) { try { return JSON.parse(localStorage.getItem(k)); } catch(e) { return null; } }
-        function pwSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+        function pwGet(k) { try { return safeLS.getJSON(k, null); } catch(e) { return null; } }
+        function pwSet(k, v) { try { safeLS.set(k, JSON.stringify(v)); } catch(e){ /* swallowed */ } }
 
         function pwGetUid() {
             if (window._firebaseUser) return window._firebaseUser.uid;
@@ -11889,8 +12191,8 @@ window.setTheme('light')
 
             const GRACE_MS = 60 * 60 * 1000;
             if (new Date() > new Date(new Date(sub.expiresAt).getTime() + GRACE_MS)) {
-                localStorage.removeItem('wxsub_' + uid);
-                localStorage.removeItem('wxsub_local_user');
+                safeLS.remove('wxsub_' + uid);
+                safeLS.remove('wxsub_local_user');
 
                 if (uid && uid !== 'local_user' && window._firebaseUser && !window._subExpiredSent) {
                     window._subExpiredSent = true;
@@ -11901,22 +12203,22 @@ window.setTheme('light')
             }
 
             if (uid !== 'local_user' && sub.uid && sub.uid !== uid) {
-                localStorage.removeItem('wxsub_' + uid);
+                safeLS.remove('wxsub_' + uid);
                 return null;
             }
 
             if (sub.banned === true) {
-                localStorage.removeItem('wxsub_' + uid);
+                safeLS.remove('wxsub_' + uid);
                 return null;
             }
 
             if (!sub.planId || sub.planId === 'free' || !PW_PLANS[sub.planId] || PW_PLANS[sub.planId].priceUsd === 0) {
-                localStorage.removeItem('wxsub_' + uid);
+                safeLS.remove('wxsub_' + uid);
                 return null;
             }
 
             if (!sub.expiresAt || isNaN(new Date(sub.expiresAt).getTime())) {
-                localStorage.removeItem('wxsub_' + uid);
+                safeLS.remove('wxsub_' + uid);
                 return null;
             }
 
@@ -11926,10 +12228,10 @@ window.setTheme('light')
                         (sub.uid || '') + '|' + sub.planId + '|' + sub.expiresAt
                     )));
                     if (sub._sig !== expected) {
-                        localStorage.removeItem('wxsub_' + uid);
+                        safeLS.remove('wxsub_' + uid);
                         return null;
                     }
-                } catch(_sigErr) {}
+                } catch(_sigErr){ /* swallowed */ }
             }
             return sub;
         }
@@ -11965,10 +12267,10 @@ window.setTheme('light')
 
                 if (!snap.exists()) {
                     window._aiLimitsCache = { requestUsed: 0, requestLimit: 0, planType: 'free' };
-                    localStorage.removeItem('wxsub_' + uid);
-                    try { pwApplyToUI(); }       catch(_e) {}
-                    try { pwRenderSettings(); }  catch(_e) {}
-                    try { updateUsageCounter(); } catch(_e) {}
+                    safeLS.remove('wxsub_' + uid);
+                    try { pwApplyToUI(); }       catch(_e){ /* swallowed */ }
+                    try { pwRenderSettings(); }  catch(_e){ /* swallowed */ }
+                    try { updateUsageCounter(); } catch(_e){ /* swallowed */ }
                     return;
                 }
                 const subData = snap.data();
@@ -11983,7 +12285,7 @@ window.setTheme('light')
 
                     clearTimeout(window._subPendingTimer);
                     window._subPendingTimer = setTimeout(function() {
-                        try { _forceSubSync(uid); } catch(_) {}
+                        try { _forceSubSync(uid); } catch(_){ /* swallowed */ }
                     }, 1000);
                     return;
                 }
@@ -11995,14 +12297,14 @@ window.setTheme('light')
                         if (expiry.getTime() + _GRACE_AUTO < Date.now()) {
                             try {
                                 await updateDoc(subRef, { active: false, expiredAt: serverTimestamp() });
-                            } catch(_e) {}
+                            } catch(_e){ /* swallowed */ }
 
                             window._aiLimitsCache = { requestUsed: 0, requestLimit: 0, planType: 'free' };
 
-                            localStorage.removeItem('wxsub_' + uid);
-                            try { pwApplyToUI(); } catch(_e) {}
-                            try { pwRenderSettings(); } catch(_e) {}
-                            try { updateUsageCounter(); } catch(_e) {}
+                            safeLS.remove('wxsub_' + uid);
+                            try { pwApplyToUI(); } catch(_e){ /* swallowed */ }
+                            try { pwRenderSettings(); } catch(_e){ /* swallowed */ }
+                            try { updateUsageCounter(); } catch(_e){ /* swallowed */ }
                             showToast(window._adminMessages?.expiry || 'ℹ️ انتهت صلاحية اشتراكك — جدّد للاستمرار', 'info');
                             return;
                         }
@@ -12046,17 +12348,17 @@ window.setTheme('light')
                         };
 
                         delete _subForLocal._botHmac;
-                        localStorage.setItem('wxsub_' + uid, JSON.stringify(_subForLocal));
-                        try { pwApplyToUI(); }       catch(_e) {}
-                        try { pwRenderSettings(); }  catch(_e) {}
-                        try { updateUsageCounter(); } catch(_e) {}
+                        safeLS.setJSON('wxsub_' + uid, _subForLocal);
+                        try { pwApplyToUI(); }       catch(_e){ /* swallowed */ }
+                        try { pwRenderSettings(); }  catch(_e){ /* swallowed */ }
+                        try { updateUsageCounter(); } catch(_e){ /* swallowed */ }
                     } else {
 
                         window._aiLimitsCache = { requestUsed: 0, requestLimit: 0, planType: 'free' };
-                        localStorage.removeItem('wxsub_' + uid);
-                        try { pwApplyToUI(); }        catch(_e) {}
-                        try { pwRenderSettings(); }   catch(_e) {}
-                        try { updateUsageCounter(); } catch(_e) {}
+                        safeLS.remove('wxsub_' + uid);
+                        try { pwApplyToUI(); }        catch(_e){ /* swallowed */ }
+                        try { pwRenderSettings(); }   catch(_e){ /* swallowed */ }
+                        try { updateUsageCounter(); } catch(_e){ /* swallowed */ }
                     }
                 }
             }, (err) => {
@@ -12064,11 +12366,11 @@ window.setTheme('light')
                 if (err && err.code === 'permission-denied') {
 
                     window._aiLimitsCache = { requestUsed: 0, requestLimit: 0, planType: 'free' };
-                    try { pwApplyToUI(); } catch(_e) {}
-                    try { updateUsageCounter(); } catch(_e) {}
+                    try { pwApplyToUI(); } catch(_e){ /* swallowed */ }
+                    try { updateUsageCounter(); } catch(_e){ /* swallowed */ }
                 } else {
 
-                    try { _forceSubSync(uid); } catch(_e) {}
+                    try { _forceSubSync(uid); } catch(_e){ /* swallowed */ }
                 }
             });
         }
@@ -12114,7 +12416,7 @@ window.setTheme('light')
 
                 delete _subSafe._botHmac;
 
-                localStorage.setItem('wxsub_' + uid, JSON.stringify(_subSafe));
+                safeLS.setJSON('wxsub_' + uid, _subSafe);
 
                 var _planId6 = _subSafe.planId || _subSafe.planType || 'free';
                 var _defaultLimit = _planId6 === 'starter' ? 30
@@ -12132,11 +12434,10 @@ window.setTheme('light')
                     requestLimit: sd.requestLimit || sd.dailyAI || _defaultLimit,
                     planType:     _subSafe.planType,
                 };
-                try { pwApplyToUI(); }       catch(_e) {}
-                try { pwRenderSettings(); }  catch(_e) {}
-                try { updateUsageCounter(); } catch(_e) {}
-            } catch(_err) {
-            }
+                try { pwApplyToUI(); }       catch(_e){ /* swallowed */ }
+                try { pwRenderSettings(); }  catch(_e){ /* swallowed */ }
+                try { updateUsageCounter(); } catch(_e){ /* swallowed */ }
+            } catch(_err){ /* swallowed */ }
         }
         window._forceSubSync = _forceSubSync;
 
@@ -12218,7 +12519,7 @@ window.setTheme('light')
             }
             if (!limit || cache.planType === 'free' || !cache.planType) {
                 const _uid   = window._firebaseUser?.uid || 'local_user';
-                const _fUsed = parseInt(localStorage.getItem('ai_free_' + _uid + '_' + new Date().toDateString()) || '0');
+                const _fUsed = parseInt(safeLS.get('ai_free_' + _uid + '_' + new Date().toDateString()) || '0');
                 return _fUsed < _getFreeLimit();
             }
             return used < limit;
@@ -12234,7 +12535,7 @@ window.setTheme('light')
             if (!cache.planType || cache.planType === 'free') {
                 const _uid  = window._firebaseUser?.uid || 'local_user';
                 const _fkey = 'ai_free_' + _uid + '_' + new Date().toDateString();
-                return parseInt(localStorage.getItem(_fkey) || '0');
+                return parseInt(safeLS.get(_fkey, '0'));
             }
 
             if (_isStarterPlan()) { const _m = pwGetMonthlyAI(); return _m.used; }
@@ -12262,7 +12563,7 @@ window.setTheme('light')
                 if (!subSnap.exists()) {
                     const _today   = new Date().toDateString();
                     const _freeKey = 'ai_free_' + uid + '_' + _today;
-                    const _freeUsed = parseInt(localStorage.getItem(_freeKey) || '0');
+                    const _freeUsed = parseInt(safeLS.get(_freeKey, '0'));
                     var _freeLimit = _getFreeLimit();
                     if (_freeUsed >= _freeLimit) {
                         window._aiLimitsCache = { requestUsed: _freeUsed, requestLimit: _freeLimit, planType: 'free' };
@@ -12295,7 +12596,7 @@ window.setTheme('light')
 
                     const _today2   = new Date().toDateString();
                     const _freeKey2 = 'ai_free_' + uid + '_' + _today2;
-                    const _freeUsed2 = parseInt(localStorage.getItem(_freeKey2) || '0');
+                    const _freeUsed2 = parseInt(safeLS.get(_freeKey2, '0'));
                     var _freeLimit2 = _getFreeLimit();
                     if (_freeUsed2 >= _freeLimit2) {
                         window._aiLimitsCache = { requestUsed: _freeUsed2, requestLimit: _freeLimit2, planType: 'free' };
@@ -12338,7 +12639,7 @@ window.setTheme('light')
                                 requestUsed: 0,
                                 dailyResetAt: serverTimestamp(),
                                 lastAIRequest: serverTimestamp()
-                            }).catch(function(){});
+                            }).catch(function(){ /* swallowed */ });
                         }
                     } else {
 
@@ -12352,10 +12653,10 @@ window.setTheme('light')
                                 requestUsed: 0,
                                 dailyResetAt: serverTimestamp(),
                                 lastAIRequest: serverTimestamp()
-                            }).catch(function(){});
+                            }).catch(function(){ /* swallowed */ });
                         }
                     }
-                } catch(_dr) {}
+                } catch(_dr){ /* swallowed */ }
 
                 window._aiLimitsCache = { requestUsed, requestLimit, planType };
 
@@ -12386,8 +12687,8 @@ window.setTheme('light')
             if (window._aiLimitsCache?.planType === 'free') {
                 const _today   = new Date().toDateString();
                 const _freeKey = 'ai_free_' + uid + '_' + _today;
-                const _cur     = parseInt(localStorage.getItem(_freeKey) || '0');
-                localStorage.setItem(_freeKey, _cur + 1);
+                const _cur     = parseInt(safeLS.get(_freeKey, '0'));
+                safeLS.set(_freeKey, _cur + 1);
                 window._aiLimitsCache.requestUsed = _cur + 1;
                 updateUsageCounter();
                 return;
@@ -12419,9 +12720,9 @@ window.setTheme('light')
 
                 try {
                     var _pk = 'ai_pending_' + uid;
-                    var _pend = parseInt(localStorage.getItem(_pk) || '0');
-                    localStorage.setItem(_pk, _pend + 1);
-                } catch(_le) {}
+                    var _pend = parseInt(safeLS.get(_pk, '0'));
+                    safeLS.set(_pk, _pend + 1);
+                } catch(_le){ /* swallowed */ }
 
                 updateUsageCounter();
             }
@@ -12564,48 +12865,8 @@ window.setTheme('light')
         }
 
         function showToast(message, type) {
-
-            const colors = {
-                success: { bg: '#22c55e', icon: '✅' },
-                error:   { bg: '#ef4444', icon: '❌' },
-                info:    { bg: '#3b82f6', icon: 'ℹ️' },
-                warning: { bg: '#f59e0b', icon: '⚠️' },
-            };
-            const c = colors[type] || colors.info;
-            const toast = document.createElement('div');
-            toast.textContent = message;
-            Object.assign(toast.style, {
-                position: 'fixed',
-                bottom: '90px',
-                left: '50%',
-                transform: 'translateX(-50%) translateY(20px)',
-                maxWidth: '92vw',
-                background: c.bg,
-                color: 'white',
-                padding: '13px 22px',
-                borderRadius: '16px',
-                fontFamily: "'DM Sans', 'Cairo', sans-serif",
-                fontWeight: '700',
-                fontSize: '0.88rem',
-                zIndex: '999999',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.35)',
-                maxWidth: '90vw',
-                textAlign: 'center',
-                lineHeight: '1.5',
-                opacity: '0',
-                transition: 'opacity 0.3s ease, transform 0.3s ease',
-            });
-            document.body.appendChild(toast);
-
-            requestAnimationFrame(() => {
-                toast.style.opacity = '1';
-                toast.style.transform = 'translateX(-50%) translateY(0)';
-            });
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateX(-50%) translateY(10px)';
-                setTimeout(() => toast.remove(), 350);
-            }, 3500);
+            var typeMap = { 'success':'success','error':'error','warning':'warn','warn':'warn','info':'info' };
+            showToastNotif(message, typeMap[type] || 'info');
         }
 
         window.showToast = showToast;
@@ -12640,7 +12901,7 @@ window.setTheme('light')
             const uid     = pwGetUid();
 
             const pending = { orderId, trackId: orderId, planId: _pwPlan.id, expiresAt: Date.now() + 60 * 60 * 1000, uid, paymentMethod: 'telegram_bot' };
-            localStorage.setItem('wxpay_pending', JSON.stringify(pending));
+            safeLS.setJSON('wxpay_pending', pending);
 
             if (uid && uid !== 'local_user') {
                 try {
@@ -12653,7 +12914,7 @@ window.setTheme('light')
                         userEmail:  window._firebaseUser?.email || '--',
                         paymentMethod: 'telegram_bot'
                     });
-                } catch(e) {}
+                } catch(e){ /* swallowed */ }
             }
 
             const telegramUrl = 'https://t.me/' + PW_BOT_USERNAME + '?start=subscribe_' + _pwPlan.id + '_' + uid + '_' + orderId;
@@ -12682,7 +12943,7 @@ window.setTheme('light')
             }
             if (Date.now() > p.expiresAt) {
                 pwStatus('err', '⏰ انتهت صلاحية الطلب. أعد المحاولة.');
-                localStorage.removeItem('wxpay_pending');
+                safeLS.remove('wxpay_pending');
                 return;
             }
             await pwCheckFirestoreStatus(p.orderId, p.planId);
@@ -12702,13 +12963,13 @@ window.setTheme('light')
 
                     if (st === 'completed') {
                         pwStopPolling(); pwStopTimer();
-                        localStorage.removeItem('wxpay_pending');
+                        safeLS.remove('wxpay_pending');
 
                         const _confirmedPlan = data.planId || planId;
                         await activateSubscription({ method: 'telegram_bot', plan: _confirmedPlan, trackId: orderId });
                     } else if (st === 'rejected') {
                         pwStopPolling(); pwStopTimer();
-                        localStorage.removeItem('wxpay_pending');
+                        safeLS.remove('wxpay_pending');
                         pwStatus('err', '❌ تم رفض الطلب. تواصل مع الدعم.');
                         showToast('❌ لم يتم تأكيد الدفع. تواصل مع الدعم.', 'error');
                     } else {
@@ -12738,7 +12999,7 @@ window.setTheme('light')
                     if (!p2 || Date.now() > p2.expiresAt || attempt >= MAX_ATTEMPTS) {
                         pwStopPolling();
                         if (attempt >= MAX_ATTEMPTS && p2) {
-                            localStorage.removeItem('wxpay_pending');
+                            safeLS.remove('wxpay_pending');
                             showToast('⚠️ لم يتم تأكيد الدفع خلال المهلة. إذا دفعت، تواصل مع الدعم.', 'warning');
                         }
                         return;
@@ -12748,12 +13009,12 @@ window.setTheme('light')
                         const docSnap = await getDoc(doc(db, 'paymentRequests', orderId));
                         if (docSnap.exists() && docSnap.data().status === 'completed') {
                             pwStopPolling(); pwStopTimer();
-                            localStorage.removeItem('wxpay_pending');
+                            safeLS.remove('wxpay_pending');
 
                             const _polledPlan = docSnap.data().planId || p2.planId;
                             await activateSubscription({ method: 'telegram_bot', plan: _polledPlan, trackId: orderId });
                         } else if (docSnap.exists() && docSnap.data().status === 'rejected') {
-                            pwStopPolling(); pwStopTimer(); localStorage.removeItem('wxpay_pending');
+                            pwStopPolling(); pwStopTimer(); safeLS.remove('wxpay_pending');
                             pwStatus('err', '❌ تم رفض الطلب. تواصل مع الدعم.');
                         } else {
                             scheduleNext();
@@ -12881,7 +13142,7 @@ window.setTheme('light')
                                     _safeData[_k] = new Date(_safeData[_k].seconds * 1000).toISOString();
                                 }
                             });
-                            localStorage.setItem('wxsub_' + uid, JSON.stringify(_safeData));
+                            safeLS.setJSON('wxsub_' + uid, _safeData);
 
                             var _apPlan  = _safeData.planType || _safeData.planId || 'free';
                             var _apLimit = _safeData.requestLimit
@@ -12893,26 +13154,26 @@ window.setTheme('light')
                                 planType:     _apPlan,
                             };
                             pwApplyToUI(); pwRenderSettings();
-                            try { updateUsageCounter(); } catch(_ue) {}
+                            try { updateUsageCounter(); } catch(_ue){ /* swallowed */ }
                         }
-                    } catch(_e) {}
+                    } catch(_e){ /* swallowed */ }
                     return;
                 }
                 showToast('⚠️ خطأ في تفعيل الاشتراك — يُرجى التواصل مع الدعم', 'error');
-
+                return; // ← لا تكمل التفعيل المحلي إذا فشل Firestore
             }
 
-            localStorage.setItem('wxsub_' + uid, JSON.stringify(subDataLocal));
+            safeLS.setJSON('wxsub_' + uid, subDataLocal);
 
-            try { window.scheduleSync?.(500); } catch(_e) {}
-            localStorage.removeItem('wxpay_pending');
+            try { window.scheduleSync?.(500); } catch(_e){ /* swallowed */ }
+            safeLS.remove('wxpay_pending');
             closePW();
 
             try {
                 Object.keys(localStorage).forEach(k => {
-                    if (k.startsWith('ai_wx_') || k.startsWith('ai_fp_')) localStorage.removeItem(k);
+                    if (k.startsWith('ai_wx_') || k.startsWith('ai_fp_')) safeLS.remove(k);
                 });
-            } catch(_e) {}
+            } catch(_e){ /* swallowed */ }
 
             pwApplyToUI();
             pwRenderSettings();
@@ -12954,7 +13215,7 @@ window.setTheme('light')
                         const localPending = pwGetPending();
                         if (!localPending) {
 
-                            localStorage.setItem('wxpay_pending', JSON.stringify({
+                            safeLS.set('wxpay_pending', JSON.stringify({
                                 orderId:   orderId,
                                 trackId:   orderId,
                                 planId:    inv.planId || 'annual',
@@ -12966,8 +13227,7 @@ window.setTheme('light')
                         startPolling(orderId, userId);
                     }
                 });
-            } catch(e) {
-            }
+            } catch(e){ /* swallowed */ }
         }
         window.checkPendingInvoices = checkPendingInvoices;
 
@@ -13203,7 +13463,7 @@ window.setTheme('light')
             if (isPro && weatherData) {
                 const _hasFreshAI = (function() {
                     try {
-                        const raw = localStorage.getItem('ai_wx_' + currentCity);
+                        const raw = safeLS.get('ai_wx_' + currentCity);
                         if (!raw) return false;
                         const obj = JSON.parse(raw);
                         return obj && obj.ts && (Date.now() - obj.ts < 5 * 60 * 1000);
@@ -13213,11 +13473,11 @@ window.setTheme('light')
                     setTimeout(() => aiWeatherProcess(true, currentCity), 500);
                 } else if (_hasFreshAI) {
                     try {
-                        const _cached = JSON.parse(localStorage.getItem('ai_wx_' + currentCity));
+                        const _cached = safeLS.getJSON('ai_wx_' + currentCity, null);
                         if (_cached?.data?.quote && typeof sqSetContent === 'function') {
                             sqSetContent(_cached.data.desc || '', _cached.data.quote);
                         }
-                    } catch(e) {}
+                    } catch(e){ /* swallowed */ }
                 }
             }
 
@@ -13465,7 +13725,7 @@ window.setTheme('light')
     try { _updateSubCardCounter(
         window._aiLimitsCache?.requestUsed  || 0,
         window._aiLimitsCache?.requestLimit || (typeof pwGetMaxAI === 'function' ? pwGetMaxAI() : 0)
-    ); } catch(_e) {}
+    ); } catch(_e){ /* swallowed */ }
 }
 
 window.showPromoCodeInput = function() {
@@ -13526,7 +13786,7 @@ window.applyPromoCodeInline = async function() {
             }
         }
 
-        function pwGetPending() { try { return JSON.parse(localStorage.getItem('wxpay_pending')); } catch(e) { return null; } }
+        function pwGetPending() { try { return safeLS.getJSON('wxpay_pending', null); } catch(e) { return null; } }
 
         window._pwCheckAI = function() {
 
@@ -13566,7 +13826,7 @@ window.applyPromoCodeInline = async function() {
                 pwStartPolling(p.trackId);
             } else if (p && Date.now() >= p.expiresAt) {
 
-                localStorage.removeItem('wxpay_pending');
+                safeLS.remove('wxpay_pending');
             }
         }
 
@@ -13581,7 +13841,7 @@ window.applyPromoCodeInline = async function() {
                 if (wasPro && typeof aiWeatherProcess === 'function') {
                     const _cached = (function() {
                         try {
-                            const r = localStorage.getItem('ai_wx_' + currentCity);
+                            const r = safeLS.get('ai_wx_' + currentCity);
                             if (!r) return false;
                             const o = JSON.parse(r);
                             return o && o.ts && (Date.now() - o.ts < 10 * 60 * 1000);
@@ -13616,7 +13876,7 @@ window.applyPromoCodeInline = async function() {
 
         function getLastUpdateMs() {
             try {
-                const ts = localStorage.getItem(`weather_ts_${currentCity}`);
+                const ts = safeLS.get(`weather_ts_${currentCity}`);
                 return ts ? parseInt(ts) : 0;
             } catch(e) { return 0; }
         }
@@ -13659,9 +13919,9 @@ window.applyPromoCodeInline = async function() {
             for (const cityKey of citiesToUpdate) {
 
                 try {
-                    const lastTs = parseInt(localStorage.getItem(`weather_ts_${cityKey}`) || '0', 10);
+                    const lastTs = parseInt(safeLS.get(`weather_ts_${cityKey}`) || '0', 10);
                     if (Date.now() - lastTs < 5 * 60 * 1000 && cityKey !== currentCity) continue;
-                } catch(e) {}
+                } catch(e){ /* swallowed */ }
 
                 try {
                     const city = allCities[cityKey];
@@ -13710,22 +13970,22 @@ window.applyPromoCodeInline = async function() {
                             const aqiBg = await rAqi.value.json();
                             if (aqiBg?.current) {
                                 data.airQuality = aqiBg.current;
-                                localStorage.setItem(`aqi_${cityKey}`, JSON.stringify(aqiBg.current));
+                                safeLS.setJSON(`aqi_${cityKey}`, aqiBg.current);
                             }
-                        } catch(e) {}
+                        } catch(e){ /* swallowed */ }
                     } else {
 
                         try {
-                            const _c = localStorage.getItem(`aqi_${cityKey}`);
+                            const _c = safeLS.get(`aqi_${cityKey}`);
                             if (_c) data.airQuality = JSON.parse(_c);
-                        } catch(e) {}
+                        } catch(e){ /* swallowed */ }
                     }
 
                     const _aqiBg = data.airQuality || null;
                     delete data.airQuality;
-                    localStorage.setItem(`weather_${cityKey}`, JSON.stringify(data));
+                    safeLS.setJSON(`weather_${cityKey}`, data);
                     data.airQuality = _aqiBg;
-                    localStorage.setItem(`weather_ts_${cityKey}`, Date.now().toString());
+                    safeLS.set(`weather_ts_${cityKey}`, Date.now().toString());
 
                     try {
                         const cw = data.current_weather || {};
@@ -13739,21 +13999,21 @@ window.applyPromoCodeInline = async function() {
                             rain24: (hr.precipitation_probability || []).slice(0,24),
                             wind24: (hr.wind_speed_10m || hr.windspeed_10m || []).slice(0,24)
                         };
-                        localStorage.setItem(`weather_mini_${cityKey}`, JSON.stringify(mini));
-                    } catch(e) {}
-                    localStorage.setItem('lastUpdate', new Intl.DateTimeFormat('ar-SD', {
+                        safeLS.setJSON(`weather_mini_${cityKey}`, mini);
+                    } catch(e){ /* swallowed */ }
+                    safeLS.set('lastUpdate', new Intl.DateTimeFormat('ar-SD', {
                         timeZone: 'Africa/Khartoum',
                         hour: '2-digit', minute: '2-digit'
                     }).format(new Date()));
                     if (cityKey === currentCity) {
                         weatherData = window.weatherData = data;
-                        if (!weatherData.airQuality) { try { const _c=localStorage.getItem(`aqi_${cityKey}`); if(_c) weatherData.airQuality=JSON.parse(_c); } catch(e){} }
+                        if (!weatherData.airQuality) { try { const _c=safeLS.get(`aqi_${cityKey}`); if(_c) weatherData.airQuality=JSON.parse(_c); } catch(e){ /* swallowed */ } }
                         updateUI(); checkAlert(); livePriorityCheck(weatherData);
                     } else {
 
                         if (typeof updateChart === 'function') setTimeout(updateChart, 200);
                     }
-                } catch (e) {}
+                } catch(e){ /* swallowed */ }
                 await new Promise(r => setTimeout(r, 1500));
             }
             _refreshInProgress = false;
@@ -13861,19 +14121,19 @@ window.applyPromoCodeInline = async function() {
             try {
                 Object.keys(localStorage).forEach(k => {
                     if (k.startsWith('ai_fp_')) {
-                        const v = localStorage.getItem(k);
+                        const v = safeLS.get(k);
                         if (v && !v.endsWith('_D') && !v.endsWith('_N'))
-                            localStorage.removeItem(k);
+                            safeLS.remove(k);
                     }
 
                     if (k.startsWith('ai_wx_')) {
                         try {
-                            const obj = JSON.parse(localStorage.getItem(k));
-                            if (obj && !obj.isDay) localStorage.removeItem(k);
-                        } catch(e) { localStorage.removeItem(k); }
+                            const obj = safeLS.getJSON(k, null);
+                            if (obj && !obj.isDay) safeLS.remove(k);
+                        } catch(e) { safeLS.remove(k); }
                     }
                 });
-            } catch(e) {}
+            } catch(e){ /* swallowed */ }
         })();
         const _aiWeatherInFlight   = {};
         const _aiWeatherLastReq    = {};
@@ -14051,7 +14311,7 @@ window.applyPromoCodeInline = async function() {
 
         function aiWeatherGetCache(cityKey) {
             try {
-                const raw = localStorage.getItem(`ai_wx_${cityKey}`);
+                const raw = safeLS.get(`ai_wx_${cityKey}`);
                 if (!raw) return null;
                 const obj = JSON.parse(raw);
                 if (!obj || !obj.ts) return null;
@@ -14068,8 +14328,8 @@ window.applyPromoCodeInline = async function() {
             try {
                 const _khH  = new Date(new Date().getTime() + 2 * 3600000).getUTCHours();
                 const _isDay = (_khH >= 6 && _khH < 19) ? 'D' : 'N';
-                localStorage.setItem(`ai_wx_${cityKey}`, JSON.stringify({ ts: Date.now(), isDay: _isDay, data }));
-            } catch(e) {}
+                safeLS.set(`ai_wx_${cityKey}`, JSON.stringify({ ts: Date.now(), isDay: _isDay, data }));
+            } catch(e){ /* swallowed */ }
         }
 
         function aiWeatherBuildContext(wd, cityName) {
@@ -14114,16 +14374,16 @@ window.applyPromoCodeInline = async function() {
 
             const _todayDate = new Date().toISOString().slice(0, 10);
             const _storedYest = (() => {
-                try { return JSON.parse(localStorage.getItem(`maxTemp_hist_${cityName}`) || 'null'); } catch(e) { return null; }
+                try { return safeLS.getJSON(`maxTemp_hist_${cityName}`, null); } catch(e) { return null; }
             })();
 
             if (!_storedYest || _storedYest.date !== _todayDate) {
-                try { localStorage.setItem(`maxTemp_hist_${cityName}`, JSON.stringify({ date: _todayDate, max: maxToday })); } catch(e) {}
+                try { safeLS.setJSON(`maxTemp_hist_${cityName}`, { date: _todayDate, max: maxToday }); } catch(e){ /* swallowed */ }
             }
 
             const maxYest = (() => {
                 try {
-                    const s = JSON.parse(localStorage.getItem(`maxTemp_hist_${cityName}`) || 'null');
+                    const s = safeLS.getJSON(`maxTemp_hist_${cityName}`, null);
                     if (s && s.date !== _todayDate) return s.max;
                     return null;
                 } catch(e) { return null; }
@@ -14387,12 +14647,12 @@ window.applyPromoCodeInline = async function() {
             }
 
             try {
-                const ls = JSON.parse(localStorage.getItem('wxtip_' + fp) || 'null');
+                const ls = safeLS.getJSON('wxtip_' + fp, null);
                 if (ls && Date.now() - ls.ts < WX_TIPS_CACHE_MS) {
                     _wxTipsMemCache[fp] = ls;
                     return ls.quote;
                 }
-            } catch(e) {}
+            } catch(e){ /* swallowed */ }
 
             if (window._fbGetDoc) {
                 try {
@@ -14402,11 +14662,11 @@ window.applyPromoCodeInline = async function() {
                         if (d.quote && d.ts && (Date.now() - d.ts) < WX_TIPS_CACHE_MS) {
                             const obj = { quote: d.quote, ts: d.ts };
                             _wxTipsMemCache[fp] = obj;
-                            try { localStorage.setItem('wxtip_' + fp, JSON.stringify(obj)); } catch(e) {}
+                            try { safeLS.setJSON('wxtip_' + fp, obj); } catch(e){ /* swallowed */ }
                             return d.quote;
                         }
                     }
-                } catch(e) {}
+                } catch(e){ /* swallowed */ }
             }
 
             const localTip = _pickLocalTip(ctx);
@@ -14416,7 +14676,7 @@ window.applyPromoCodeInline = async function() {
 
                 const obj = { quote: localTip, ts: Date.now() };
                 _wxTipsMemCache[fp] = obj;
-                try { localStorage.setItem('wxtip_' + fp, JSON.stringify(obj)); } catch(e) {}
+                try { safeLS.setJSON('wxtip_' + fp, obj); } catch(e){ /* swallowed */ }
             }
 
             return localTip;
@@ -14425,11 +14685,11 @@ window.applyPromoCodeInline = async function() {
         async function _wxTipsSave(fp, quote) {
             const obj = { quote, ts: Date.now() };
             _wxTipsMemCache[fp] = obj;
-            try { localStorage.setItem('wxtip_' + fp, JSON.stringify(obj)); } catch(e) {}
+            try { safeLS.setJSON('wxtip_' + fp, obj); } catch(e){ /* swallowed */ }
             if (window._fbSetDoc) {
                 try {
                     await window._fbSetDoc('wxTips/' + fp, obj, true);
-                } catch(e) {}
+                } catch(e){ /* swallowed */ }
             }
         }
 
@@ -14454,7 +14714,7 @@ window.applyPromoCodeInline = async function() {
 
             let wd = targetCity === currentCity ? weatherData : null;
             if (!wd) {
-                try { const r = localStorage.getItem(`weather_${targetCity}`); if (r) wd = JSON.parse(r); } catch(e) {}
+                try { const r = safeLS.get(`weather_${targetCity}`); if (r) wd = JSON.parse(r); } catch(e){ /* swallowed */ }
             }
             if (!wd) { _aiWeatherInFlight[targetCity] = false; return; }
 
@@ -14471,7 +14731,7 @@ window.applyPromoCodeInline = async function() {
 
             const fpKey      = `ai_fp_${targetCity}`;
             const fingerprint = _wxFingerprint(ctx.temp, ctx.wxCode, ctx.rainProb, ctx.isDay);
-            const lastFP      = localStorage.getItem(fpKey) || '';
+            const lastFP      = safeLS.get(fpKey) || '';
 
             if (!forceRefresh && fingerprint === lastFP && cached) {
 
@@ -14483,7 +14743,7 @@ window.applyPromoCodeInline = async function() {
             const _localTip  = _pickLocalTip(ctx);
             const _result    = { desc: _localDesc, quote: _localTip };
             aiWeatherSetCache(targetCity, _result);
-            localStorage.setItem(fpKey, fingerprint);
+            safeLS.set(fpKey, fingerprint);
             if (targetCity === currentCity) aiWeatherApplyToUI(_result);
             _aiWeatherInFlight[targetCity] = false;
         }
@@ -14698,7 +14958,7 @@ window.applyPromoCodeInline = async function() {
                         window._fbDeleteDoc('wxsubscriptions/' + uid),
                         window._fbDeleteDoc('aiUsage/' + uid),
                     ]);
-                } catch(e) {}
+                } catch(e){ /* swallowed */ }
             }
 
             if (window._fbDeleteUser) {
@@ -14714,8 +14974,8 @@ window.applyPromoCodeInline = async function() {
                 }
             }
 
-            try { localStorage.clear(); } catch(e) {}
-            try { sessionStorage.clear(); } catch(e) {}
+            try { localStorage.clear(); } catch(e){ /* swallowed */ }
+            try { sessionStorage.clear(); } catch(e){ /* swallowed */ }
 
             hideDeleteDataConfirm();
             _showDeleteSuccessToast();
@@ -14798,7 +15058,7 @@ window.applyPromoCodeInline = async function() {
                 await deleteUser(user);
 
                 document.getElementById('reauthModal')?.remove();
-                try { localStorage.clear(); sessionStorage.clear(); } catch(e) {}
+                try { localStorage.clear(); sessionStorage.clear(); } catch(e){ /* swallowed */ }
                 _showDeleteSuccessToast();
             } catch(e) {
                 if (errEl) {
@@ -14814,8 +15074,8 @@ window.applyPromoCodeInline = async function() {
             if (e.target === this) hideDeleteDataConfirm();
         });
 
-        window._cumulusAlertsEnabled = localStorage.getItem('cumulusAlerts') !== 'off';
-        function toggleCumulusAlerts() { window._cumulusAlertsEnabled=!window._cumulusAlertsEnabled; localStorage.setItem('cumulusAlerts',window._cumulusAlertsEnabled?'on':'off'); if(window._lastCumulusResult) applyCumulusToUI(window._lastCumulusResult); }
+        window._cumulusAlertsEnabled = safeLS.get('cumulusAlerts') !== 'off';
+        function toggleCumulusAlerts() { window._cumulusAlertsEnabled=!window._cumulusAlertsEnabled; safeLS.set('cumulusAlerts', window._cumulusAlertsEnabled?'on':'off'); if(window._lastCumulusResult) applyCumulusToUI(window._lastCumulusResult); }
 
         (function(){
             if (document.getElementById('cbAlertStyle')) return;
@@ -14957,12 +15217,12 @@ function advancedCumulusRisk(params) {
             try {
                 var raw = sessionStorage.getItem(STORE_KEY);
                 if (raw) dismissed = JSON.parse(raw);
-            } catch(e) {}
+            } catch(e){ /* swallowed */ }
             return {
                 isDismissed: function(key) { return !!dismissed[key]; },
                 dismiss: function(key) {
                     dismissed[key] = 1;
-                    try { sessionStorage.setItem(STORE_KEY, JSON.stringify(dismissed)); } catch(e) {}
+                    try { sessionStorage.setItem(STORE_KEY, JSON.stringify(dismissed)); } catch(e){ /* swallowed */ }
                 }
             };
         })();
@@ -15440,8 +15700,7 @@ function playAlertSound(severity) {
         oscillator.start();
         gain.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 1);
         oscillator.stop(audioContext.currentTime + 1);
-    } catch (e) {
-    }
+    } catch(e){ /* swallowed */ }
 }
 
 function registerCard(card, type) {
@@ -15562,14 +15821,14 @@ function _showCbSmartCardSimple(type, content) {
 
         function _cbCacheAlert(type, cumulusResult, eta) {
             try {
-                localStorage.setItem(CB_CACHE_KEY, JSON.stringify({
+                safeLS.set(CB_CACHE_KEY, JSON.stringify({
                     type:  type,
                     prob:  cumulusResult.probability,
                     isCb:  cumulusResult.isCumulonimbus,
                     eta:   eta ? eta.etaMinutes : null,
                     ts:    Date.now()
                 }));
-            } catch(e) {}
+            } catch(e){ /* swallowed */ }
         }
 
         function _cbRestoreCachedAlert() {
@@ -15578,7 +15837,7 @@ function _showCbSmartCardSimple(type, content) {
 
             if (_AlertSession.isDismissed('cbSmartCard_pre') && _AlertSession.isDismissed('cbSmartCard_post')) return;
             try {
-                var raw = localStorage.getItem(CB_CACHE_KEY);
+                var raw = safeLS.get(CB_CACHE_KEY);
                 if (!raw) return;
                 var c = JSON.parse(raw);
                 if (!c || (Date.now() - c.ts) > CB_CACHE_TTL) return;
@@ -15597,7 +15856,7 @@ function _showCbSmartCardSimple(type, content) {
                         factors: 'احتمال: ' + c.prob + '%'
                     });
                 }
-            } catch(e) {}
+            } catch(e){ /* swallowed */ }
         }
 
         function applyCumulusToUI(r) {
@@ -15672,8 +15931,8 @@ function _showCbSmartCardSimple(type, content) {
                     mbMsg.textContent = 'هبوط حراري '+r.tempDrop+'°C · فجوة هبات '+r.gustGap+' كم/س · السحابة أفرغت هواءها البارد للأسفل — ارتفاع غبار فوري متوقع!';
             }
         }
-         window._windAlertsEnabled = localStorage.getItem('windAlerts') !== 'off';
-        function toggleWindAlerts() { window._windAlertsEnabled=!window._windAlertsEnabled; localStorage.setItem('windAlerts',window._windAlertsEnabled?'on':'off'); var b=document.getElementById('windForecastToggleBtn'); if(b) b.textContent=window._windAlertsEnabled?'🔔':'🔕'; if(window._lastWindResult) applyWindForecastToUI(window._lastWindResult); }
+         window._windAlertsEnabled = safeLS.get('windAlerts') !== 'off';
+        function toggleWindAlerts() { window._windAlertsEnabled=!window._windAlertsEnabled; safeLS.set('windAlerts', window._windAlertsEnabled?'on':'off'); var b=document.getElementById('windForecastToggleBtn'); if(b) b.textContent=window._windAlertsEnabled?'🔔':'🔕'; if(window._lastWindResult) applyWindForecastToUI(window._lastWindResult); }
 
         function windForecast(params) {
 
@@ -16219,7 +16478,7 @@ function _showCbSmartCardSimple(type, content) {
             alertColor = '#ef4444'; alertBg = 'rgba(239,68,68,0.15)';
         }
 
-        alertEl.innerHTML = alertMessage;
+        alertEl.textContent = alertMessage;
         alertEl.style.cssText = 'border-radius:12px;padding:10px 15px;margin-bottom:12px;font-size:0.85rem;font-weight:700;' +
             'background:' + alertBg + ';border:1px solid ' + alertColor + '55;color:' + alertColor + ';text-align:center;' +
             'display:flex;align-items:center;justify-content:center;gap:8px;';
@@ -16797,7 +17056,7 @@ function _showCbSmartCardSimple(type, content) {
             if (document.getElementById('staleCacheBanner')) return;
 
             if (_AlertSession.isDismissed('staleBanner')) return;
-            var ts = parseInt(localStorage.getItem('weather_ts_' + currentCity) || '0');
+            var ts = parseInt(safeLS.get('weather_ts_' + currentCity, '0'));
             var minutesAgo = ts ? Math.round((Date.now() - ts) / 60000) : null;
             var timeLabel = minutesAgo === null ? 'وقت غير معروف'
                 : minutesAgo < 60 ? minutesAgo + ' دقيقة'
@@ -17083,7 +17342,7 @@ function _showCbSmartCardSimple(type, content) {
                     osc.start(ctx.currentTime + i * 0.25);
                     osc.stop(ctx.currentTime + i * 0.25 + 0.25);
                 });
-            } catch(e) {}
+            } catch(e){ /* swallowed */ }
         }
 
         (function() {
@@ -17215,48 +17474,129 @@ function _showCbSmartCardSimple(type, content) {
             }
         }
 
+        // ملاحظة: هذه الدالة أصبحت legacy — قائمة المدن الآن في _obRenderCityList
         function _bindObCitySearch() {
-            const inp     = document.getElementById('cityDropdown');
-            const results = document.getElementById('obCityResults');
-            if (!inp || !results) return;
+            // kept for backward compatibility — no-op since slide-2 redesign
+        }
 
-            var _deb = null;
+        // ══════════════════════════════════════════════
+        // قائمة مدن الـ Onboarding — إصلاح كامل
+        // ══════════════════════════════════════════════
+        function _obRenderCityList(filterQ) {
+            var listEl = document.getElementById('obCityList');
+            if (!listEl || typeof allCities === 'undefined') return;
 
-            inp.addEventListener('input', function() {
-                clearTimeout(_deb);
-                const q = this.value.trim();
-                if (!q) { results.style.display = 'none'; results.innerHTML = ''; return; }
-                _deb = setTimeout(function() {
-                    const found = _citySearch(q);
-                    results.innerHTML = '';
-                    results.style.display = found.length ? 'block' : 'none';
-                    found.forEach(r => {
-                        const el = document.createElement('div');
-                        el.style.cssText = 'padding:12px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;' +
-                                           'border-bottom:1px solid var(--border-color);direction:rtl;transition:background 0.15s;';
-                        el.innerHTML =
-                            '<i class="fas fa-location-dot" style="color:var(--accent);font-size:0.85rem;"></i>' +
-                            '<span style="font-family:Cairo,sans-serif;font-weight:700;font-size:0.95rem;flex:1;"></span>' +
-                            '<span style="font-size:0.74rem;color:var(--text-secondary);"></span>';
-                        el.querySelectorAll('span')[0].textContent = r.name;
-                        el.querySelectorAll('span')[1].textContent = r.region;
-                        el.addEventListener('mousedown', function(e) {
-                            e.preventDefault();
-                            inp.value = r.name;
-                            results.style.display = 'none';
-                            selectCityFromDropdown(r.key);
-                        });
-                        results.appendChild(el);
+            var q = (filterQ || '').trim();
+            var entries = Object.entries(allCities);
+
+            // فلترة حسب الاسم أو المفتاح
+            if (q) {
+                entries = entries.filter(function(pair) {
+                    var key  = pair[0];
+                    var city = pair[1];
+                    return city.name.includes(q) ||
+                           key.toLowerCase().includes(q.toLowerCase());
+                });
+            }
+
+            listEl.innerHTML = '';
+
+            if (!entries.length) {
+                listEl.innerHTML =
+                    '<div style="text-align:center;padding:22px;color:var(--text-secondary);' +
+                    'font-family:Cairo,sans-serif;">لا توجد نتائج لـ "' +
+                    _obEscape(q) + '"</div>';
+                return;
+            }
+
+            entries.forEach(function(pair) {
+                var key  = pair[0];
+                var city = pair[1];
+                var isSelected = (onboardingData.mainCity === key);
+
+                var el = document.createElement('div');
+                el.className = 'slide-option' + (isSelected ? ' selected' : '');
+                el.setAttribute('data-city-key', key);
+                el.setAttribute('role', 'option');
+                el.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+
+                // أيقونة الولاية/المنطقة
+                var regionIcon = {
+                    'الوسطى': '🏛️', 'الشرق': '🌅', 'الشمال': '🏔️',
+                    'الغرب': '🌵', 'الجنوب': '🌿', 'أخرى': '📍'
+                };
+                var icon = regionIcon[city.region] || '📍';
+
+                el.innerHTML =
+                    '<span style="font-size:1.2rem;flex-shrink:0;">' + icon + '</span>' +
+                    '<div style="flex:1;text-align:right;">' +
+                        '<div style="font-weight:700;font-size:0.95rem;font-family:Cairo,sans-serif;">' +
+                            _obEscape(city.name) +
+                        '</div>' +
+                        '<div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px;">' +
+                            _obEscape(city.region || '') +
+                        '</div>' +
+                    '</div>' +
+                    (isSelected
+                        ? '<i class="fas fa-check-circle" style="color:var(--accent);font-size:1rem;flex-shrink:0;"></i>'
+                        : '<i class="fas fa-chevron-left" style="color:var(--text-secondary);font-size:0.7rem;flex-shrink:0;opacity:0.5;"></i>'
+                    );
+
+                el.addEventListener('click', function() {
+                    // إزالة التحديد السابق
+                    listEl.querySelectorAll('.slide-option').forEach(function(x) {
+                        x.classList.remove('selected');
+                        x.setAttribute('aria-selected', 'false');
+                        var chk = x.querySelector('.fa-check-circle');
+                        if (chk) { chk.className = 'fas fa-chevron-left'; chk.style.cssText = 'color:var(--text-secondary);font-size:0.7rem;flex-shrink:0;opacity:0.5;'; }
                     });
-                }, 220);
-            });
 
-            inp.addEventListener('blur', function() {
-                setTimeout(function() { results.style.display = 'none'; }, 200);
+                    // تحديد المدينة الجديدة
+                    el.classList.add('selected');
+                    el.setAttribute('aria-selected', 'true');
+                    var chkIcon = el.querySelector('i:last-child');
+                    if (chkIcon) { chkIcon.className = 'fas fa-check-circle'; chkIcon.style.cssText = 'color:var(--accent);font-size:1rem;flex-shrink:0;'; }
+
+                    onboardingData.mainCity = key;
+
+                    // معاينة الاختيار
+                    var preview = document.getElementById('citySelectedPreview');
+                    var nameEl  = document.getElementById('citySelectedName');
+                    if (preview && nameEl) {
+                        nameEl.textContent = city.name + ' — ' + (city.region || '');
+                        preview.style.display = 'flex';
+                        // إضافة animation بسيطة
+                        preview.style.opacity = '0';
+                        preview.style.transform = 'translateY(6px)';
+                        requestAnimationFrame(function() {
+                            preview.style.transition = 'opacity 0.3s, transform 0.3s';
+                            preview.style.opacity = '1';
+                            preview.style.transform = 'translateY(0)';
+                        });
+                    }
+
+                    // تمرير تلقائي للعنصر
+                    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                });
+
+                listEl.appendChild(el);
             });
         }
 
-        function _obSearchCity(q) {  }
+        // دالة escape آمنة للنصوص في HTML
+        function _obEscape(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // متوافق مع الكود القديم (كانت فارغة — إصلاح)
+        function _obSearchCity(q) {
+            _obRenderCityList(q);
+        }
 
         window._showDustStormAlert   = _showDustStormAlert;
         window._showATIAlert         = _showATIAlert;
@@ -17433,8 +17773,8 @@ function _showCbSmartCardSimple(type, content) {
                         mc.splice(idx, 1);
                         if (typeof settings !== 'undefined') {
                             settings.mainCities = mc;
-                            localStorage.setItem('appSettings', JSON.stringify(settings));
-                            try { window.scheduleSync?.(); } catch(e) {}
+                            safeLS.setJSON('appSettings', settings);
+                            try { window.scheduleSync?.(); } catch(e){ /* swallowed */ }
                         }
                         if (typeof loadAllMainCitiesWeather === 'function') loadAllMainCitiesWeather();
                         renderCmpCityRow();
@@ -17528,19 +17868,19 @@ function _showCbSmartCardSimple(type, content) {
                         if (typeof settings !== 'undefined') {
                             settings.mainCities = mc;
                             settings.citiesManuallySet = true;
-                            localStorage.setItem('appSettings', JSON.stringify(settings));
-                            try { window.scheduleSync?.(); } catch(e) {}
+                            safeLS.setJSON('appSettings', settings);
+                            try { window.scheduleSync?.(); } catch(e){ /* swallowed */ }
                         }
 
                         var nc = cities[key];
-                        if (nc && !localStorage.getItem('aqi_' + key)) {
+                        if (nc && !safeLS.get('aqi_' + key)) {
                             var u = 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=' + nc.lat +
                                     '&longitude=' + nc.lon +
                                     '&current=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone,sulphur_dioxide,dust,uv_index,us_aqi,european_aqi' +
                                     '&timezone=Africa/Khartoum&forecast_days=1';
                             fetch(u).then(function(r) { return r.ok ? r.json() : null; })
-                                    .then(function(d) { if (d && d.current) localStorage.setItem('aqi_' + key, JSON.stringify(d.current)); })
-                                    .catch(function() {});
+                                    .then(function(d) { if (d && d.current) safeLS.setJSON('aqi_' + key, d.current); })
+                                    .catch(function(){ /* swallowed */ });
                         }
                         if (typeof loadAllMainCitiesWeather === 'function') loadAllMainCitiesWeather();
                         renderCmpCityRow();
@@ -17579,6 +17919,116 @@ function _showCbSmartCardSimple(type, content) {
 
     })();
     </script>
+
+
+<script>
+/* === Production runtime safety bootstrap (Sudan Weather) === */
+(function(){
+  'use strict';
+  // Dev flag: only show console output if URL has ?debug=1 (helps Google Play QA)
+  try {
+    var _dev = (location.search || '').indexOf('debug=1') !== -1;
+    if (!_dev) {
+      var noop = function(){};
+      ['log','debug','info','warn'].forEach(function(k){
+        try { console[k] = noop; } catch(_){ /* swallowed */ }
+      });
+      // Keep console.error so Crashlytics-style tooling still surfaces issues.
+    }
+  } catch(_){ /* swallowed */ }
+
+  // Global error capture (prevents WebView default 'unhandled' overlays)
+  window.addEventListener('error', function(e){
+    try { (window._lastErrors = window._lastErrors || []).push({m:e.message, s:e.filename, l:e.lineno, t:Date.now()}); } catch(_){ /* swallowed */ }
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    try { (window._lastErrors = window._lastErrors || []).push({m:String(e.reason && e.reason.message || e.reason), t:Date.now()}); } catch(_){ /* swallowed */ }
+    try { e.preventDefault(); } catch(_){ /* swallowed */ }
+  });
+
+  // Cleanup intervals on page hide to prevent battery drain
+  window.addEventListener('pagehide', function(){
+    try {
+      if (window._groqCooldownIv) clearInterval(window._groqCooldownIv);
+    } catch(_){ /* swallowed */ }
+  });
+
+  // Network online/offline awareness for the UI
+  function netUpdate(){
+    try { document.documentElement.setAttribute('data-online', navigator.onLine ? '1' : '0'); } catch(_){ /* swallowed */ }
+  }
+  window.addEventListener('online',  netUpdate);
+  window.addEventListener('offline', netUpdate);
+  netUpdate();
+
+  // Service Worker registration (PWA + offline cache shell)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(){ /* offline-first not critical */ });
+    });
+  }
+
+  // ---- Capacitor integration (Android back button, status bar, splash) ----
+  function initCapacitor(){
+    try {
+      var Cap = window.Capacitor;
+      if (!Cap) return;
+      var Plugins = Cap.Plugins || {};
+
+      // Hide splash once UI is ready
+      try { Plugins.SplashScreen && Plugins.SplashScreen.hide && Plugins.SplashScreen.hide(); } catch(_){ /* swallowed */ }
+
+      // Status bar: dark background, light text
+      try {
+        if (Plugins.StatusBar) {
+          Plugins.StatusBar.setStyle && Plugins.StatusBar.setStyle({ style: 'DARK' });
+          Plugins.StatusBar.setBackgroundColor && Plugins.StatusBar.setBackgroundColor({ color: '#0f172a' });
+          Plugins.StatusBar.setOverlaysWebView && Plugins.StatusBar.setOverlaysWebView({ overlay: false });
+        }
+      } catch(_){ /* swallowed */ }
+
+      // Hardware back button: close open modal/sheet first; only exit on top route
+      try {
+        if (Plugins.App && Plugins.App.addListener) {
+          Plugins.App.addListener('backButton', function(){
+            try {
+              // Try to close any open dialog with [data-open="true"] or .open class
+              var openSheet = document.querySelector('.bottom-sheet.active, .modal.active, [data-open="true"], .sheet-open');
+              if (openSheet) {
+                var btn = openSheet.querySelector('[data-close], .close, .btn-close');
+                if (btn) { btn.click(); return; }
+                openSheet.classList.remove('active','sheet-open');
+                openSheet.removeAttribute('data-open');
+                return;
+              }
+              if (history.length > 1) { history.back(); return; }
+              Plugins.App.exitApp && Plugins.App.exitApp();
+            } catch(e){
+              try { Plugins.App.exitApp && Plugins.App.exitApp(); } catch(_){ /* swallowed */ }
+            }
+          });
+
+          // Resume: refresh weather if last fetch >5 min old (best-effort)
+          Plugins.App.addListener('resume', function(){
+            try {
+              var last = Number(localStorage.getItem('lastWxFetchMs') || 0);
+              if (Date.now() - last > 5 * 60 * 1000 && typeof window.refreshWeather === 'function') {
+                window.refreshWeather();
+              }
+            } catch(_){ /* swallowed */ }
+          });
+        }
+      } catch(_){ /* swallowed */ }
+    } catch(_){ /* swallowed */ }
+  }
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(initCapacitor, 0);
+  } else {
+    document.addEventListener('DOMContentLoaded', initCapacitor);
+  }
+})();
+</script>
 
 </body>
 </html>
