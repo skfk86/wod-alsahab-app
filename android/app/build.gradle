@@ -3,6 +3,7 @@ apply plugin: 'com.android.application'
 android {
     namespace = "com.ali.wadalsahab"
     compileSdk = rootProject.ext.compileSdkVersion
+    
     defaultConfig {
         applicationId "com.ali.wadalsahab"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -15,7 +16,7 @@ android {
         }
     }
 
-    // ── إعداد التوقيع — يقرأ من key.properties محلياً أو GitHub Secrets في CI ──
+    // إعدادات التوقيع - تم تحديثها لتدعم التوافق مع Java 21 و GitHub CI
     signingConfigs {
         release {
             def keystorePropsFile = rootProject.file('key.properties')
@@ -27,13 +28,14 @@ android {
                 keyAlias      keystoreProps['keyAlias']
                 keyPassword   keystoreProps['keyPassword']
             } else {
+                // القيم الافتراضية في حال عدم وجود ملف key.properties (تستخدم في GitHub Actions)
                 storeFile     file(System.getenv('KEYSTORE_PATH') ?: 'release.keystore')
                 storePassword System.getenv('KEYSTORE_PASSWORD') ?: ''
-                keyAlias      System.getenv('KEY_ALIAS') ?: ''
+                keyAlias      System.getenv('KEY_ALIAS') ?: 'wadalsahab_key'
                 keyPassword   System.getenv('KEY_PASSWORD') ?: ''
             }
-
-            // تفعيل توقيع الإصدارين V1 و V2 للتوافق مع جميع إصدارات Android
+            
+            // تمكين أنواع التوقيع المتعددة لحل مشكلة "Tag number over 30"
             v1SigningEnabled true
             v2SigningEnabled true
         }
@@ -41,42 +43,52 @@ android {
 
     buildTypes {
         release {
-            signingConfig    signingConfigs.release
-            minifyEnabled    false
-            shrinkResources  false
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
         debug {
             applicationIdSuffix ".debug"
-            versionNameSuffix   "-debug"
+            versionNameSuffix "-debug"
         }
     }
 
     bundle {
         language { enableSplit = false }
     }
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
 }
 
 repositories {
-    flatDir{
+    flatDir {
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
 }
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+    
+    // المكتبات الأساسية
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
-    
-    // مكتبة Material Design للثيمات والألوان
-    implementation "com.google.android.material:material:1.9.0"
-    
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    
+    // السطر المنقذ لحل أخطاء الثيمات والألوان والماتيريال ديزاين
+    implementation "com.google.android.material:material:1.9.0"
+
+    // Capacitor Dependencies
     implementation project(':capacitor-android')
+    implementation project(':capacitor-cordova-android-plugins')
+    
+    // Testing
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
-    implementation project(':capacitor-cordova-android-plugins')
 }
 
 apply from: 'capacitor.build.gradle'
@@ -87,5 +99,5 @@ try {
         apply plugin: 'com.google.gms.google-services'
     }
 } catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+    logger.info("google-services.json not found, google-services plugin not applied.")
 }
