@@ -74,3 +74,4 @@ jobs:
         with:
           name: Sudan-Weather-Release-APK
           path: android/app/build/outputs/apk/release/app-release.apk
+# Force Trigger Build 2026
