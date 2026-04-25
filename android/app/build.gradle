@@ -32,6 +32,10 @@ android {
                 keyAlias      System.getenv('KEY_ALIAS') ?: ''
                 keyPassword   System.getenv('KEY_PASSWORD') ?: ''
             }
+
+            // تفعيل توقيع الإصدارين V1 و V2 للتوافق مع جميع إصدارات Android
+            v1SigningEnabled true
+            v2SigningEnabled true
         }
     }
 
@@ -62,17 +66,26 @@ repositories {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    
+    // مكتبة Material Design للثيمات والألوان
+    implementation "com.google.android.material:material:1.9.0"
+    
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
-    
-    // السطر المفقود الذي سيحل أخطاء الثيم والألوان
-    implementation "com.google.android.material:material:1.9.0"
-
     implementation project(':capacitor-android')
-    implementation project(':capacitor-cordova-android-plugins')
-    
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
 }
 
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
