@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Android signing — لا ترفع هذه الملفات أبداً
+android/key.properties
+android/app/*.keystore
+android/app/*.jks
+*.keystore
+*.jks
+
+# Build outputs
+android/app/build/
+android/.gradle/
+android/build/
+
+# Capacitor
+.capacitor/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local

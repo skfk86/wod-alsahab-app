@@ -1,2 +1,4 @@
 node_modules/
 android/app/build/
+sudan-weather.keystore
+*.zip

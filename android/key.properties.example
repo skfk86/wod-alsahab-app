@@ -1,0 +1,7 @@
+# ── ملف إعدادات التوقيع — انسخ هذا الملف إلى key.properties واملأ البيانات ──
+# تحذير: لا ترفع key.properties على GitHub أبداً — أضفه لـ .gitignore
+
+storeFile=../sudan-weather-release.keystore
+storePassword=YOUR_KEYSTORE_PASSWORD_HERE
+keyAlias=sudan-weather
+keyPassword=YOUR_KEY_PASSWORD_HERE
